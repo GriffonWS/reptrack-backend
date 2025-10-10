@@ -1,28 +1,31 @@
-// config/multer.js
 import multer from "multer";
 import path from "path";
-import { fileURLToPath } from "url";
 
-// Fix __dirname in ES Modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Configure multer for memory storage (for S3 upload)
+const storage = multer.memoryStorage();
 
-// Temporary upload directory before Cloudinary upload
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, "../uploads"));
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + "-" + file.originalname);
-  },
-});
-
-// Accept only image files
+// File filter - only allow images
 const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith("image/")) cb(null, true);
-  else cb(new Error("Only image files are allowed"), false);
+  const allowedTypes = /jpeg|jpg|png|gif|webp/;
+  const extname = allowedTypes.test(
+    path.extname(file.originalname).toLowerCase()
+  );
+  const mimetype = allowedTypes.test(file.mimetype);
+
+  if (extname && mimetype) {
+    cb(null, true);
+  } else {
+    cb(new Error("Only image files are allowed (jpeg, jpg, png, gif, webp)"));
+  }
 };
 
-const upload = multer({ storage, fileFilter });
+// Multer configuration
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB max file size
+  },
+  fileFilter: fileFilter,
+});
 
-export default upload;
+module.exports = upload;

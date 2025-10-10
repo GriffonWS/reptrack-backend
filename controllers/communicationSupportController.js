@@ -1,93 +1,69 @@
-import Support from "../models/communicationSupportModels.js";
+import { CommunicationSupport } from "../models/communicationSupportModels.js";
+import { v4 as uuidv4 } from "uuid";
 
-const communicationSupportController = {
-  // Create a new support query (for users)
-  createSupport: async (req, res) => {
+export const communicationSupportController = {
+  // 🟢 Get all communication supports
+  getAllCommunicationSupport: async (req, res) => {
     try {
-      const { query, senderId, email } = req.body;
+      const supports = await CommunicationSupport.findAll({
+        order: [["id", "DESC"]],
+      });
+      res.status(200).json(supports);
+    } catch (error) {
+      res.status(500).json({
+        message: "Failed to fetch support queries",
+        error: error.message,
+      });
+    }
+  },
 
-      if (!query || !senderId || !email) {
-        return res.status(400).json({
-          success: false,
-          message: "Query, senderId, and email are required",
-          data: null,
-        });
+  // 🟢 Create a new support entry
+  createCommunicationSupport: async (req, res) => {
+    try {
+      const { sender_id, email, query } = req.body;
+
+      // Validate all required fields
+      if (!sender_id || !email || !query) {
+        return res
+          .status(400)
+          .json({ message: "sender_id, email and query are required" });
       }
 
-      const newSupport = new Support({ query, senderId, email });
-      const savedSupport = await newSupport.save();
+      const newSupport = await CommunicationSupport.create({
+        sender_id, // ✅ Now sender_id is defined
+        email,
+        query,
+      });
 
-      return res.status(201).json({
-        success: true,
+      res.status(201).json({
         message: "Support query created successfully",
-        data: savedSupport,
+        data: newSupport,
       });
     } catch (error) {
-      console.error("Create Support Error:", error);
-      return res.status(500).json({
-        success: false,
-        message: error.message || "Internal server error",
-        data: null,
+      res.status(500).json({
+        message: "Failed to create support query",
+        error: error.message,
       });
     }
   },
-
-  // Get all support queries (for admin)
-  getAllSupports: async (req, res) => {
+  // 🟢 Get by unique_id
+  getCommunicationByUniqueId: async (req, res) => {
     try {
-      const supports = await Support.find().sort({ createdAt: -1 });
-      return res.status(200).json({
-        success: true,
-        message: "Support queries fetched successfully",
-        data: supports,
+      const { sender_id } = req.body;
+      const support = await CommunicationSupport.findOne({
+        where: { sender_id },
       });
-    } catch (error) {
-      console.error("Get All Supports Error:", error);
-      return res.status(500).json({
-        success: false,
-        message: error.message || "Internal server error",
-        data: null,
-      });
-    }
-  },
 
-  // Get support queries by senderId (for admin or user)
-  getSupportsBySenderId: async (req, res) => {
-    try {
-      const { senderId } = req.body;
-
-      if (!senderId) {
-        return res.status(400).json({
-          success: false,
-          message: "Sender ID is required",
-          data: null,
-        });
+      if (!support) {
+        return res.status(404).json({ message: "Support query not found" });
       }
 
-      const supports = await Support.find({ senderId }).sort({ createdAt: -1 });
-
-      if (supports.length === 0) {
-        return res.status(404).json({
-          success: false,
-          message: "No queries found for this sender",
-          data: [],
-        });
-      }
-
-      return res.status(200).json({
-        success: true,
-        message: "Support queries fetched successfully",
-        data: supports,
-      });
+      res.status(200).json(support);
     } catch (error) {
-      console.error("Get Supports By SenderId Error:", error);
-      return res.status(500).json({
-        success: false,
-        message: error.message || "Internal server error",
-        data: null,
+      res.status(500).json({
+        message: "Failed to fetch support query",
+        error: error.message,
       });
     }
   },
 };
-
-export default communicationSupportController;

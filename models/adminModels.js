@@ -1,81 +1,48 @@
-import mongoose from "mongoose";
-import bcrypt from "bcryptjs";
+import { DataTypes } from "sequelize";
+import { sequelize } from "../config/mysql.js";
 
-const adminSchema = new mongoose.Schema(
+export const Admin = sequelize.define(
+  "admin",
   {
-    firstName: {
-      type: String,
-      required: [true, "First name is required"],
-      trim: true,
-    },
-    lastName: {
-      type: String,
-      required: [true, "Last name is required"],
-      trim: true,
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
     },
     email: {
-      type: String,
-      required: [true, "Email is required"],
+      type: DataTypes.STRING,
+      allowNull: false,
       unique: true,
-      lowercase: true,
-      trim: true,
-      match: [
-        /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/,
-        "Please provide a valid email",
-      ],
+    },
+    firstname: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    lastname: {
+      type: DataTypes.STRING,
+      allowNull: false,
     },
     password: {
-      type: String,
-      required: [true, "Password is required"],
-      minlength: 6,
-      select: false, // Don't include password in queries by default
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+    role: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      defaultValue: "admin",
+    },
+    timestamp: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: DataTypes.NOW, // ✅ Auto-fill with current time
     },
     token: {
-      type: String,
-      default: null,
-    },
-    isActive: {
-      type: Boolean,
-      default: true,
+      type: DataTypes.STRING,
+      allowNull: true,
     },
   },
   {
-    timestamps: true, // Adds createdAt and updatedAt fields
+    tableName: "admin",
+    timestamps: false, // ✅ Disable Sequelize's automatic timestamps
   }
 );
-
-// Hash password before saving
-adminSchema.pre("save", async function (next) {
-  // Only hash the password if it has been modified (or is new)
-  if (!this.isModified("password")) {
-    return next();
-  }
-
-  try {
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Method to compare password
-adminSchema.methods.comparePassword = async function (candidatePassword) {
-  try {
-    return await bcrypt.compare(candidatePassword, this.password);
-  } catch (error) {
-    throw new Error(error);
-  }
-};
-
-// Method to get admin without password
-adminSchema.methods.toJSON = function () {
-  const admin = this.toObject();
-  delete admin.password;
-  return admin;
-};
-
-const Admin = mongoose.model("Admin", adminSchema);
-
-export default Admin;

@@ -1,16 +1,43 @@
-import mongoose from "mongoose";
+import { DataTypes } from "sequelize";
+import { sequelize } from "../config/mysql.js";
 
-const equipmentSchema = new mongoose.Schema(
+export const Equipment = sequelize.define(
+  "equipment",
   {
-    equipmentName: { type: String, required: true },
-    category: { type: String },
-    equipmentNumber: { type: String, required: true, unique: true },
-    equipmentImage: { type: String },
-    timestamp: { type: Date, default: Date.now },
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
+    equipment_name: {
+      type: DataTypes.STRING(255),
+      allowNull: false,
+    },
+    category: {
+      type: DataTypes.STRING(100),
+      allowNull: false,
+    },
+    equipment_number: {
+      type: DataTypes.STRING(50),
+      allowNull: false,
+      unique: true,
+    },
+    equipment_image: {
+      type: DataTypes.TEXT, // Use TEXT to store full S3 URLs
+      allowNull: true,
+    },
+    gym_owner_id: {
+      type: DataTypes.STRING(255),
+      allowNull: false,
+    },
+    timestamp: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: DataTypes.NOW,
+    },
   },
-  { timestamps: true }
+  {
+    tableName: "equipment",
+    timestamps: false,
+  }
 );
-
-const Equipment = mongoose.model("Equipment", equipmentSchema);
-
-export default Equipment;

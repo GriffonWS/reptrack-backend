@@ -1,35 +1,34 @@
 import { DataTypes } from "sequelize";
 import { sequelize } from "../config/mysql.js";
 
-export const CommunicationSupport = sequelize.define(
-  "communication_support",
+export const FreeWeight = sequelize.define(
+  "free_weights",
   {
     id: {
       type: DataTypes.INTEGER,
       autoIncrement: true,
       primaryKey: true,
     },
-    sender_id: {
-      type: DataTypes.STRING,
-      allowNull: false,
-      unique: true,
-    },
-    email: {
+    exercise_category: {
       type: DataTypes.STRING,
       allowNull: false,
     },
-    query: {
+    exercise_details: {
       type: DataTypes.TEXT,
       allowNull: false,
     },
-    created_at: {
+    gym_owner_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    timestamp: {
       type: DataTypes.DATE,
-      allowNull: true,
-      defaultValue: DataTypes.NOW, // ✅ Auto-fill with current time
+      allowNull: false,
+      defaultValue: DataTypes.NOW,
     },
   },
   {
-    tableName: "communication_supports",
+    tableName: "free_weights",
     timestamps: false,
   }
 );

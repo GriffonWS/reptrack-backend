@@ -1,249 +1,215 @@
-import Equipment from "../models/equipmentModels.js";
+import { Equipment } from "../models/equipmentModels.js";
+import { uploadToS3 } from "../utils/uploadToS3.js";
 
-/**
- * Equipment Controller
- * Handles CRUD operations for gym equipment
- */
+export const equipmentController = {
+  // 🟢 Get all equipments
+  getAllEquipments: async (req, res) => {
+    try {
+      const equipments = await Equipment.findAll({
+        order: [["id", "DESC"]],
+      });
+      res.status(200).json(equipments);
+    } catch (error) {
+      res.status(500).json({
+        message: "Failed to fetch equipments",
+        error: error.message,
+      });
+    }
+  },
 
-const equipmentController = {
-  // Create Equipment
+  // 🟢 Get equipment by category
+  getByCategory: async (req, res) => {
+    try {
+      const { category } = req.params;
+
+      const equipments = await Equipment.findAll({ where: { category } });
+
+      if (!equipments.length) {
+        return res
+          .status(404)
+          .json({ message: "No equipments found for this category" });
+      }
+
+      res.status(200).json(equipments);
+    } catch (error) {
+      res.status(500).json({
+        message: "Failed to fetch equipments by category",
+        error: error.message,
+      });
+    }
+  },
+
+  // 🟢 Get equipment by equipment number
+  getByEquipmentNumber: async (req, res) => {
+    try {
+      const { equipment_number } = req.params;
+
+      const equipment = await Equipment.findOne({
+        where: { equipment_number },
+      });
+
+      if (!equipment) {
+        return res.status(404).json({ message: "Equipment not found" });
+      }
+
+      res.status(200).json(equipment);
+    } catch (error) {
+      res.status(500).json({
+        message: "Failed to fetch equipment by number",
+        error: error.message,
+      });
+    }
+  },
+
+  // 🟢 Create equipment
+
   createEquipment: async (req, res) => {
     try {
-      // Make sure body exists
-      if (!req.body) {
+      // 🔍 DEBUG: Log everything
+      console.log("📥 Request body:", req.body);
+      console.log("📁 Request file:", req.file);
+
+      const { equipment_name, category, equipment_number, gym_owner_id } =
+        req.body;
+
+      // Validate required fields
+      if (!equipment_name || !category || !equipment_number || !gym_owner_id) {
         return res.status(400).json({
           success: false,
           message:
-            "Request body is missing. Make sure you are sending form data.",
-          data: null,
+            "equipment_name, category, equipment_number, and gym_owner_id are required",
         });
       }
 
-      const { equipmentName, category, equipmentNumber } = req.body;
-      const equipmentImage = req.file ? req.file.filename : null;
+      let imageUrl = null;
 
-      if (!equipmentName || !equipmentNumber) {
-        return res.status(400).json({
-          success: false,
-          message: "equipmentName and equipmentNumber are required",
-          data: null,
+      // Upload image to S3 if file exists
+      if (req.file) {
+        console.log("📤 File detected! Uploading to S3...");
+        console.log("📄 File details:", {
+          originalname: req.file.originalname,
+          mimetype: req.file.mimetype,
+          size: req.file.size,
         });
+
+        try {
+          imageUrl = await uploadToS3(req.file);
+          console.log("✅ S3 Upload successful! URL:", imageUrl);
+        } catch (uploadError) {
+          console.error("❌ S3 Upload failed:", uploadError);
+          return res.status(500).json({
+            success: false,
+            message: "Failed to upload image to S3",
+            error: uploadError.message,
+          });
+        }
+      } else {
+        console.log("⚠️ No file detected in request!");
       }
 
-      // Check if equipmentNumber already exists
-      const existingEquipment = await Equipment.findOne({ equipmentNumber });
-      if (existingEquipment) {
-        return res.status(400).json({
-          success: false,
-          message: "Equipment with this number already exists",
-          data: null,
-        });
-      }
+      console.log("💾 Saving to database with imageUrl:", imageUrl);
 
-      const newEquipment = new Equipment({
-        equipmentName,
+      // Create equipment record in database
+      const newEquipment = await Equipment.create({
+        equipment_name,
         category,
-        equipmentNumber,
-        equipmentImage,
+        equipment_number,
+        equipment_image: imageUrl, // S3 URL saved here
+        gym_owner_id,
       });
 
-      const saved = await newEquipment.save();
+      console.log("✅ Equipment saved to database:", newEquipment.toJSON());
 
-      return res.status(201).json({
+      res.status(201).json({
         success: true,
         message: "Equipment created successfully",
-        data: saved,
+        data: {
+          id: newEquipment.id,
+          equipment_name: newEquipment.equipment_name,
+          category: newEquipment.category,
+          equipment_number: newEquipment.equipment_number,
+          equipment_image: newEquipment.equipment_image, // Returns S3 URL
+          gym_owner_id: newEquipment.gym_owner_id,
+          timestamp: newEquipment.timestamp,
+        },
       });
     } catch (error) {
-      console.error("Create Equipment Error:", error);
-      return res.status(500).json({
+      console.error("❌ Error creating equipment:", error);
+      console.error("❌ Error stack:", error.stack);
+
+      // Handle unique constraint error
+      if (error.name === "SequelizeUniqueConstraintError") {
+        return res.status(409).json({
+          success: false,
+          message: "Equipment number already exists",
+        });
+      }
+
+      res.status(500).json({
         success: false,
-        message: error.message || "Internal server error",
-        data: null,
+        message: "Failed to create equipment",
+        error: error.message,
       });
     }
   },
 
-  // Update Equipment
-  updateEquipment: async (req, res) => {
+  // 🟡 Update equipment by ID
+  updateEquipmentById: async (req, res) => {
     try {
       const { id } = req.params;
-      const updates = req.body;
+      const { equipment_name, category, equipment_number, gym_owner_id } =
+        req.body;
 
+      const equipment = await Equipment.findByPk(id);
+      if (!equipment) {
+        return res.status(404).json({ message: "Equipment not found" });
+      }
+
+      let imageUrl = equipment.equipment_image;
+
+      // ✅ If new image provided, upload to S3
       if (req.file) {
-        updates.equipmentImage = req.file.filename;
+        imageUrl = await uploadToS3(req.file);
       }
 
-      const updated = await Equipment.findByIdAndUpdate(id, updates, {
-        new: true,
+      await equipment.update({
+        equipment_name: equipment_name || equipment.equipment_name,
+        category: category || equipment.category,
+        equipment_number: equipment_number || equipment.equipment_number,
+        gym_owner_id: gym_owner_id || equipment.gym_owner_id,
+        equipment_image: imageUrl,
       });
 
-      if (!updated) {
-        return res.status(404).json({
-          success: false,
-          message: "Equipment not found",
-          data: null,
-        });
-      }
-
-      return res.status(200).json({
-        success: true,
+      res.status(200).json({
         message: "Equipment updated successfully",
-        data: updated,
-      });
-    } catch (error) {
-      console.error("Update Equipment Error:", error);
-      return res.status(500).json({
-        success: false,
-        message: error.message || "Internal server error",
-        data: null,
-      });
-    }
-  },
-
-  // Delete Equipment
-  deleteEquipment: async (req, res) => {
-    try {
-      const { id } = req.params;
-      const deleted = await Equipment.findByIdAndDelete(id);
-
-      if (!deleted) {
-        return res.status(404).json({
-          success: false,
-          message: "Equipment not found",
-          data: null,
-        });
-      }
-
-      return res.status(200).json({
-        success: true,
-        message: "Equipment deleted successfully",
-        data: null,
-      });
-    } catch (error) {
-      console.error("Delete Equipment Error:", error);
-      return res.status(500).json({
-        success: false,
-        message: error.message || "Internal server error",
-        data: null,
-      });
-    }
-  },
-
-  // Get Equipment by ID
-  getEquipmentById: async (req, res) => {
-    try {
-      const { id } = req.params;
-      const equipment = await Equipment.findById(id);
-
-      if (!equipment) {
-        return res.status(404).json({
-          success: false,
-          message: "Equipment not found",
-          data: null,
-        });
-      }
-
-      return res.status(200).json({
-        success: true,
-        message: "Equipment fetched successfully",
         data: equipment,
       });
     } catch (error) {
-      console.error("Get Equipment Error:", error);
-      return res.status(500).json({
-        success: false,
-        message: error.message || "Internal server error",
-        data: null,
+      res.status(500).json({
+        message: "Failed to update equipment",
+        error: error.message,
       });
     }
   },
 
-  // Get All Equipment
-  getAllEquipment: async (req, res) => {
+  // 🔴 Delete equipment by ID
+  deleteEquipmentById: async (req, res) => {
     try {
-      const equipments = await Equipment.find();
-      return res.status(200).json({
-        success: true,
-        message: "All equipment fetched successfully",
-        data: equipments,
-      });
-    } catch (error) {
-      console.error("Get All Equipment Error:", error);
-      return res.status(500).json({
-        success: false,
-        message: error.message || "Internal server error",
-        data: null,
-      });
-    }
-  },
+      const { id } = req.params;
 
-  // Get Equipment by Category
-  getEquipmentByCategory: async (req, res) => {
-    try {
-      const { category } = req.query;
-
-      if (!category) {
-        return res.status(400).json({
-          success: false,
-          message: "Category query parameter is required",
-          data: null,
-        });
-      }
-
-      const equipments = await Equipment.find({ category });
-
-      if (!equipments.length) {
-        return res.status(404).json({
-          success: false,
-          message: "No equipment found for the given category",
-          data: [],
-        });
-      }
-
-      return res.status(200).json({
-        success: true,
-        message: "Equipment fetched successfully by category",
-        data: equipments,
-      });
-    } catch (error) {
-      console.error("Get Equipment by Category Error:", error);
-      return res.status(500).json({
-        success: false,
-        message: error.message || "Internal server error",
-        data: null,
-      });
-    }
-  },
-
-  // Get Equipment by Number
-  getEquipmentByNumber: async (req, res) => {
-    try {
-      const { equipmentNumber } = req.params;
-      const equipment = await Equipment.findOne({ equipmentNumber });
-
+      const equipment = await Equipment.findByPk(id);
       if (!equipment) {
-        return res.status(404).json({
-          success: false,
-          message: "Equipment not found",
-          data: null,
-        });
+        return res.status(404).json({ message: "Equipment not found" });
       }
 
-      return res.status(200).json({
-        success: true,
-        message: "Equipment fetched successfully",
-        data: equipment,
-      });
+      await equipment.destroy();
+
+      res.status(200).json({ message: "Equipment deleted successfully" });
     } catch (error) {
-      console.error("Get Equipment by Number Error:", error);
-      return res.status(500).json({
-        success: false,
-        message: error.message || "Internal server error",
-        data: null,
+      res.status(500).json({
+        message: "Failed to delete equipment",
+        error: error.message,
       });
     }
   },
 };
-
-export default equipmentController;
