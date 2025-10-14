@@ -13,6 +13,7 @@ import exerciseDetailsRoutes from "./routes/exerciseDetailsRoutes.js";
 import freeWeightRoutes from "./routes/freeWeightRoutes.js";
 import gymAbbreviationRoutes from "./routes/gymAbbreviationRoutes.js";
 import otherExerciseRoutes from "./routes/otherExerciseRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
 
 dotenv.config(); // Load environment variables
 
@@ -43,6 +44,7 @@ app.use("/api/exercise-details", exerciseDetailsRoutes);
 app.use("/api/free-weights", freeWeightRoutes);
 app.use("/api/gym-abbreviations", gymAbbreviationRoutes);
 app.use("/api/other-exercises", otherExerciseRoutes);
+app.use("/api/users", userRoutes);
 
 // Start server
 const PORT = process.env.PORT || 5000;
