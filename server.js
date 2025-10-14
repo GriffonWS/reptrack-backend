@@ -21,7 +21,7 @@ const app = express();
 // ✅ CORS - Keep this first
 app.use(
   cors({
-    origin: process.env.CORS_ALLOWED_ORIGINS || "http://localhost:3000",
+    origin: process.env.CORS_ALLOWED_ORIGINS || "http://localhost:5173",
     credentials: true,
   })
 );

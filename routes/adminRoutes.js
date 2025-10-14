@@ -2,16 +2,33 @@ import express from "express";
 import {
   registerAdmin,
   loginAdmin,
-  getAdminByToken,
-  updateAdminByToken,
+  getAdminProfile,
+  updateAdminProfile,
   logoutAdmin,
+  refreshTokenHandler,
 } from "../controllers/adminController.js";
+import { verifyToken, requireRole } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/register-admin", registerAdmin);
-router.post("/login-admin", loginAdmin);
-router.get("/get-admin", getAdminByToken);
-router.put("/update-admin", updateAdminByToken);
-router.post("/logout-admin", logoutAdmin);
+// Public routes
+router.post("/register", registerAdmin);
+router.post("/login", loginAdmin);
+router.post("/refresh-token", refreshTokenHandler);
+
+// Protected routes
+router.get("/profile", verifyToken, getAdminProfile);
+router.put("/profile", verifyToken, updateAdminProfile);
+router.post("/logout", verifyToken, logoutAdmin);
+
+// Role-based route example
+router.delete(
+  "/users/:id",
+  verifyToken,
+  requireRole("superadmin"),
+  (req, res) => {
+    res.json({ message: "User deleted" });
+  }
+);
+
 export default router;

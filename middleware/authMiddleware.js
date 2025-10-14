@@ -1,44 +1,33 @@
-// middleware/authMiddleware.js
-const authMiddleware = (req, res, next) => {
+import jwt from "jsonwebtoken";
+
+export const verifyToken = (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
-    // Check if Authorization header exists
-    if (!authHeader) {
-      return res.status(401).json({
-        success: false,
-        message: "Authorization header missing",
-      });
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "No token provided" });
     }
 
-    // Check if Authorization header starts with "Bearer "
-    if (!authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid authorization format. Use: Bearer <token>",
-      });
-    }
+    const token = authHeader.split(" ")[1];
 
-    // Extract token
-    const token = authHeader.substring(7); // Remove "Bearer " prefix
-
-    if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: "Token not provided",
-      });
-    }
-
-    // Attach token to request object for use in controllers
-    req.token = token;
-
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
     next();
   } catch (error) {
-    return res.status(401).json({
-      success: false,
-      message: "Authentication failed: " + error.message,
-    });
+    console.error("❌ Token verification failed:", error.message);
+    return res.status(401).json({ message: "Invalid or expired token" });
   }
 };
 
-export default authMiddleware;
+// Optional: Role-based access control
+export const requireRole = (...allowedRoles) => {
+  return (req, res, next) => {
+    if (!allowedRoles.includes(req.user.role)) {
+      return res
+        .status(403)
+        .json({ message: "Insufficient permissions for this action" });
+    }
+    next();
+  };
+};
