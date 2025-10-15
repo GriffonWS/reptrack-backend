@@ -56,3 +56,62 @@ export const getAllUsers = async (req, res) => {
     });
   }
 };
+
+export const getUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate id parameter
+    if (!id) {
+      return res.status(400).json({
+        message: "User ID is required",
+      });
+    }
+
+    // Fetch user from database
+    const user = await User.findOne({
+      where: { id: parseInt(id) },
+      attributes: [
+        "id",
+        "firstName",
+        "lastName",
+        "phone",
+        "email",
+        "uniqueId",
+        "gymOwnerId",
+        "subscriptionType",
+        "dateOfJoining",
+        "dateOfBirth",
+        "gender",
+        "emergencyPhone",
+        "healthInfo",
+        "height",
+        "weight",
+        "profileImage",
+        "status",
+        "active",
+        "isProfileUpdated",
+        "timestamp",
+      ],
+    });
+
+    // Check if user exists
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    // Return success response
+    res.status(200).json({
+      message: "User fetched successfully",
+      data: user,
+    });
+  } catch (error) {
+    console.error("❌ Error fetching user:", error.message);
+    res.status(500).json({
+      message: "Failed to fetch user",
+      error: error.message,
+    });
+  }
+};

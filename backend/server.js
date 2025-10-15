@@ -1,8 +1,9 @@
-// server.js - FIXED VERSION
+// server.js - WITH S3 CONNECTION CHECK
 import dotenv from "dotenv";
 import express from "express";
 import cors from "cors";
 import { connectDB } from "./config/mysql.js";
+import s3 from "./config/aws.js"; // Import S3 config
 
 // Import routes
 import adminRoutes from "./routes/adminRoutes.js";
@@ -46,6 +47,44 @@ app.use("/api/gym-abbreviations", gymAbbreviationRoutes);
 app.use("/api/other-exercises", otherExerciseRoutes);
 app.use("/api/admin/users", userRoutes);
 
+// 🔧 S3 Connection Check Function
+const checkS3Connection = async () => {
+  try {
+    // List buckets to verify credentials and connection
+    const data = await s3.listBuckets().promise();
+    console.log("✅ S3 connected successfully");
+    console.log(`📦 Available buckets: ${data.Buckets.length}`);
+
+    // Optional: Check if specific bucket exists
+    const bucketName = process.env.AWS_BUCKET_NAME;
+    if (bucketName) {
+      try {
+        await s3.headBucket({ Bucket: bucketName }).promise();
+        console.log(`✅ Target bucket '${bucketName}' is accessible`);
+      } catch (bucketError) {
+        console.warn(`⚠️  Warning: Cannot access bucket '${bucketName}'`);
+        console.warn(`   Error: ${bucketError.message}`);
+      }
+    }
+
+    return true;
+  } catch (error) {
+    console.error("❌ S3 connection failed:");
+    console.error(`   Error: ${error.message}`);
+
+    // More specific error messages
+    if (error.code === "InvalidAccessKeyId") {
+      console.error("   → Check your AWS_ACCESS_KEY_ID");
+    } else if (error.code === "SignatureDoesNotMatch") {
+      console.error("   → Check your AWS_SECRET_ACCESS_KEY");
+    } else if (error.code === "InvalidToken") {
+      console.error("   → Your AWS credentials may have expired");
+    }
+
+    return false;
+  }
+};
+
 // Start server
 const PORT = process.env.PORT || 5000;
 
@@ -54,11 +93,22 @@ const startServer = async () => {
     // Connect to database
     await connectDB();
 
+    // Check S3 connection
+    const s3Connected = await checkS3Connection();
+
+    if (!s3Connected) {
+      console.warn("⚠️  Server starting without S3 connection");
+      console.warn("   File uploads may not work properly");
+    }
+
     // Start listening
     app.listen(PORT, () => {
       console.log(`🚀 Server is running on port ${PORT}`);
       console.log(`📘 Environment: ${process.env.NODE_ENV || "development"}`);
       console.log(`✅ Database connected successfully`);
+      if (s3Connected) {
+        console.log(`✅ S3 connected successfully`);
+      }
     });
   } catch (error) {
     console.error("❌ Failed to start server:", error.message);
