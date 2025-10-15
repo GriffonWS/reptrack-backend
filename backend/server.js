@@ -44,7 +44,7 @@ app.use("/api/exercise-details", exerciseDetailsRoutes);
 app.use("/api/free-weights", freeWeightRoutes);
 app.use("/api/gym-abbreviations", gymAbbreviationRoutes);
 app.use("/api/other-exercises", otherExerciseRoutes);
-app.use("/api/users", userRoutes);
+app.use("/api/admin/users", userRoutes);
 
 // Start server
 const PORT = process.env.PORT || 5000;
