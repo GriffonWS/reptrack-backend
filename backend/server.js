@@ -5,6 +5,7 @@ import sequelize from "./config/database.js";
 import adminRoutes from "./routes/admin.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import communicationSupportRoutes from "./routes/communicationSupport.routes.js";
+import equipmentRoutes from "./routes/equipment.routes.js";
 
 dotenv.config();
 
@@ -27,6 +28,7 @@ app.use("/uploads", express.static("uploads"));
 app.use("/api", adminRoutes);
 app.use("/users", userRoutes);
 app.use("/communicationsupports", communicationSupportRoutes);
+app.use("/equipment", equipmentRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
