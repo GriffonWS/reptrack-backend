@@ -1,35 +1,39 @@
-import dotenv from 'dotenv';
-import express from 'express';
-import cors from 'cors';
-import sequelize from './config/database.js';
-import adminRoutes from './routes/admin.routes.js';
-import userRoutes from './routes/user.routes.js';
+import dotenv from "dotenv";
+import express from "express";
+import cors from "cors";
+import sequelize from "./config/database.js";
+import adminRoutes from "./routes/admin.routes.js";
+import userRoutes from "./routes/user.routes.js";
+import communicationSupportRoutes from "./routes/communicationSupport.routes.js";
 
 dotenv.config();
 
 const app = express();
 
 // Middleware
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || '*',
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: process.env.CORS_ORIGIN || "*",
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve static files (for uploaded images)
-app.use('/uploads', express.static('uploads'));
+app.use("/uploads", express.static("uploads"));
 
 // Routes
-app.use('/api', adminRoutes);
-app.use('/users', userRoutes);
+app.use("/api", adminRoutes);
+app.use("/users", userRoutes);
+app.use("/communicationsupports", communicationSupportRoutes);
 
 // Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    message: 'Gym Tracking API is running',
-    timestamp: new Date().toISOString()
+app.get("/health", (req, res) => {
+  res.json({
+    status: "OK",
+    message: "Gym Tracking API is running",
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -38,8 +42,8 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({
     success: false,
-    message: 'Something went wrong!',
-    data: null
+    message: "Something went wrong!",
+    data: null,
   });
 });
 
@@ -47,8 +51,8 @@ app.use((err, req, res, next) => {
 app.use((req, res) => {
   res.status(404).json({
     success: false,
-    message: 'Route not found',
-    data: null
+    message: "Route not found",
+    data: null,
   });
 });
 
@@ -59,14 +63,14 @@ const startServer = async () => {
   try {
     // Sync database (creates tables if they don't exist)
     await sequelize.sync({ alter: false });
-    console.log('✅ Database synchronized successfully');
-    
+    console.log("✅ Database synchronized successfully");
+
     app.listen(PORT, () => {
       console.log(`🚀 Server is running on port ${PORT}`);
-      console.log(`📦 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`📦 Environment: ${process.env.NODE_ENV || "development"}`);
     });
   } catch (error) {
-    console.error('❌ Failed to start server:', error);
+    console.error("❌ Failed to start server:", error);
     process.exit(1);
   }
 };
