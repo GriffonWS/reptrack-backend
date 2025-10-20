@@ -1,5 +1,5 @@
 import { DataTypes } from "sequelize";
-import sequelize from "../config/database.js"; // adjust path if needed
+import sequelize from "../config/database.js";
 
 const Equipment = sequelize.define(
   "Equipment",
@@ -9,7 +9,7 @@ const Equipment = sequelize.define(
       autoIncrement: true,
       primaryKey: true,
     },
-    equipmentName: {
+    equipment_name: {
       type: DataTypes.STRING,
       allowNull: false,
       field: "equipment_name",
@@ -17,18 +17,19 @@ const Equipment = sequelize.define(
     category: {
       type: DataTypes.STRING,
       allowNull: true,
+      field: "category",
     },
-    equipmentNumber: {
+    equipment_number: {
       type: DataTypes.STRING,
       allowNull: false,
       field: "equipment_number",
     },
-    equipmentImage: {
+    equipment_image: {
       type: DataTypes.STRING,
       allowNull: true,
       field: "equipment_image",
     },
-    gymOwnerId: {
+    gym_owner_id: {
       type: DataTypes.BIGINT,
       allowNull: false,
       field: "gym_owner_id",
@@ -36,6 +37,7 @@ const Equipment = sequelize.define(
     timestamp: {
       type: DataTypes.DATE,
       defaultValue: DataTypes.NOW,
+      field: "timestamp",
     },
   },
   {

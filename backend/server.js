@@ -6,6 +6,7 @@ import adminRoutes from "./routes/admin.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import communicationSupportRoutes from "./routes/communicationSupport.routes.js";
 import equipmentRoutes from "./routes/equipment.routes.js";
+import gymAbbreviationRoutes from "./routes/gymAbbreviation.routes.js";
 
 dotenv.config();
 
@@ -29,6 +30,7 @@ app.use("/api", adminRoutes);
 app.use("/users", userRoutes);
 app.use("/communicationsupports", communicationSupportRoutes);
 app.use("/equipment", equipmentRoutes);
+app.use("/gymabbreviations", gymAbbreviationRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {

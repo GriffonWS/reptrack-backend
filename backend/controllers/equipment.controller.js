@@ -1,36 +1,57 @@
 import Equipment from "../models/equipment.model.js";
+import Admin from "../models/admin.model.js";
 import jwt from "jsonwebtoken";
-import path from "path";
-import fs from "fs";
+import { uploadToS3 } from "../utils/uploadToS3.js";
 
 export const createEquipment = async (req, res) => {
   try {
-    const { equipmentName, category, equipmentNumber } = req.body;
+    const token = req.token;
+    const { equipment_name, category, equipment_number } = req.body;
     const file = req.file;
-    const tokenData = req.admin;
 
-    if (tokenData.role !== "Gym_Owner") {
-      return res.status(403).json({ success: false, message: "Access denied" });
+    // Verify admin token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const admin = await Admin.findOne({ where: { id: decoded.id, token } });
+
+    if (!admin) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized. Only authorized users can create equipment.",
+      });
     }
 
-    if (!equipmentName || !equipmentNumber) {
+    if (!equipment_name || !equipment_number) {
       return res.status(400).json({
         success: false,
         message: "Equipment name and number are required",
       });
     }
 
-    let imagePath = null;
+    // Try to upload image to S3 (if file exists)
+    let imageUrl = null;
     if (file) {
-      imagePath = `/uploads/${file.filename}`;
+      try {
+        imageUrl = await uploadToS3(file);
+        if (!imageUrl) {
+          console.warn(
+            "⚠️ S3 upload returned null, proceeding with null image"
+          );
+        }
+      } catch (error) {
+        console.error(
+          "⚠️ S3 upload failed, proceeding with null image:",
+          error.message
+        );
+      }
     }
 
+    // Create equipment (even if S3 upload failed)
     const newEquipment = await Equipment.create({
-      equipmentName,
+      equipment_name,
       category,
-      equipmentNumber,
-      equipmentImage: imagePath,
-      gymOwnerId: tokenData.id,
+      equipment_number,
+      equipment_image: imageUrl,
+      gym_owner_id: admin.id,
     });
 
     res.status(201).json({
@@ -50,13 +71,20 @@ export const createEquipment = async (req, res) => {
 
 export const updateEquipment = async (req, res) => {
   try {
+    const token = req.token;
     const { id } = req.params;
-    const { equipmentName, category, equipmentNumber } = req.body;
+    const { equipment_name, category, equipment_number } = req.body;
     const file = req.file;
-    const tokenData = req.admin;
 
-    if (tokenData.role !== "Gym_Owner") {
-      return res.status(403).json({ success: false, message: "Access denied" });
+    // Verify admin token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const admin = await Admin.findOne({ where: { id: decoded.id, token } });
+
+    if (!admin) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized. Only authorized users can update equipment.",
+      });
     }
 
     const equipment = await Equipment.findByPk(id);
@@ -66,16 +94,31 @@ export const updateEquipment = async (req, res) => {
         .json({ success: false, message: "Equipment not found" });
     }
 
-    let imagePath = equipment.equipmentImage;
+    // Keep existing image if no new file uploaded
+    let imageUrl = equipment.equipment_image;
+
+    // Try to upload new image to S3 (if file exists)
     if (file) {
-      imagePath = `/uploads/${file.filename}`;
+      try {
+        const newImageUrl = await uploadToS3(file);
+        if (newImageUrl) {
+          imageUrl = newImageUrl;
+        } else {
+          console.warn("⚠️ S3 upload returned null, keeping existing image");
+        }
+      } catch (error) {
+        console.error(
+          "⚠️ S3 upload failed, keeping existing image:",
+          error.message
+        );
+      }
     }
 
     await equipment.update({
-      equipmentName,
+      equipment_name,
       category,
-      equipmentNumber,
-      equipmentImage: imagePath,
+      equipment_number,
+      equipment_image: imageUrl,
     });
 
     res.json({
@@ -94,11 +137,18 @@ export const updateEquipment = async (req, res) => {
 
 export const deleteEquipment = async (req, res) => {
   try {
+    const token = req.token;
     const { id } = req.params;
-    const tokenData = req.admin;
 
-    if (tokenData.role !== "Gym_Owner") {
-      return res.status(403).json({ success: false, message: "Access denied" });
+    // Verify admin token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const admin = await Admin.findOne({ where: { id: decoded.id, token } });
+
+    if (!admin) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized. Only authorized users can delete equipment.",
+      });
     }
 
     const equipment = await Equipment.findByPk(id);
@@ -144,14 +194,21 @@ export const getEquipment = async (req, res) => {
 
 export const getAllEquipment = async (req, res) => {
   try {
-    const tokenData = req.admin;
+    const token = req.token;
 
-    if (tokenData.role !== "Gym_Owner") {
-      return res.status(403).json({ success: false, message: "Access denied" });
+    // Verify admin token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const admin = await Admin.findOne({ where: { id: decoded.id, token } });
+
+    if (!admin) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized access.",
+      });
     }
 
     const equipments = await Equipment.findAll({
-      where: { gymOwnerId: tokenData.id },
+      where: { gym_owner_id: admin.id },
     });
 
     res.json({ success: true, data: equipments });
@@ -166,15 +223,22 @@ export const getAllEquipment = async (req, res) => {
 
 export const getEquipmentByCategory = async (req, res) => {
   try {
+    const token = req.token;
     const { category } = req.query;
-    const tokenData = req.admin;
 
-    if (tokenData.role !== "Gym_Owner") {
-      return res.status(403).json({ success: false, message: "Access denied" });
+    // Verify admin token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const admin = await Admin.findOne({ where: { id: decoded.id, token } });
+
+    if (!admin) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized access.",
+      });
     }
 
     const equipments = await Equipment.findAll({
-      where: { category, gymOwnerId: tokenData.id },
+      where: { category, gym_owner_id: admin.id },
     });
 
     res.json({ success: true, data: equipments });
@@ -189,9 +253,9 @@ export const getEquipmentByCategory = async (req, res) => {
 
 export const getEquipmentByNumber = async (req, res) => {
   try {
-    const { equipmentNumber } = req.params;
+    const { equipment_number } = req.params;
     const equipment = await Equipment.findOne({
-      where: { equipmentNumber },
+      where: { equipment_number },
     });
 
     if (!equipment) {

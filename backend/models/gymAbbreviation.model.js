@@ -1,8 +1,8 @@
 import { DataTypes } from "sequelize";
-import { sequelize } from "../config/mysql.js";
+import sequelize from "../config/database.js";
 
-export const GymAbbreviation = sequelize.define(
-  "gym_abbreviation",
+const GymAbbreviation = sequelize.define(
+  "GymAbbreviation",
   {
     id: {
       type: DataTypes.BIGINT,
@@ -21,7 +21,9 @@ export const GymAbbreviation = sequelize.define(
     },
   },
   {
-    tableName: "gym_abbreviation",
-    timestamps: false,
+    tableName: "gym_abbreviation", // ✅ same as in Java entity
+    timestamps: false, // we manually manage timestamp
   }
 );
+
+export default GymAbbreviation;
