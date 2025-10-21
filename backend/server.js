@@ -7,6 +7,10 @@ import userRoutes from "./routes/user.routes.js";
 import communicationSupportRoutes from "./routes/communicationSupport.routes.js";
 import equipmentRoutes from "./routes/equipment.routes.js";
 import gymAbbreviationRoutes from "./routes/gymAbbreviation.routes.js";
+import exerciseDetailsRoutes from "./routes/exerciseDetails.routes.js";
+import privacyPolicyRoutes from "./routes/privacyPolicy.routes.js";
+import freeWeightRoutes from "./routes/freeWeight.routes.js";
+import OtherExercise from "./routes/otherExercise.routes.js";
 
 dotenv.config();
 
@@ -31,7 +35,10 @@ app.use("/users", userRoutes);
 app.use("/communicationsupports", communicationSupportRoutes);
 app.use("/equipment", equipmentRoutes);
 app.use("/gymabbreviations", gymAbbreviationRoutes);
-
+app.use("/exercise-details", exerciseDetailsRoutes);
+app.use("/privacypolicy", privacyPolicyRoutes);
+app.use("/free-weight", freeWeightRoutes);
+app.use("/other-exercise", OtherExercise);
 // Health check endpoint
 app.get("/health", (req, res) => {
   res.json({

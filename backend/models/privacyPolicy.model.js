@@ -1,11 +1,11 @@
 import { DataTypes } from "sequelize";
-import { sequelize } from "../config/mysql.js";
+import sequelize from "../config/database.js";
 
-export const PrivacyPolicy = sequelize.define(
-  "privacy_policy",
+const PrivacyPolicy = sequelize.define(
+  "PrivacyPolicy",
   {
     id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.BIGINT,
       autoIncrement: true,
       primaryKey: true,
     },
@@ -16,11 +16,13 @@ export const PrivacyPolicy = sequelize.define(
     timestamp: {
       type: DataTypes.DATE,
       allowNull: false,
-      defaultValue: DataTypes.NOW, // automatically sets current time
+      defaultValue: DataTypes.NOW,
     },
   },
   {
     tableName: "privacy_policy",
-    timestamps: false, // disable Sequelize's createdAt/updatedAt
+    timestamps: false,
   }
 );
+
+export default PrivacyPolicy;

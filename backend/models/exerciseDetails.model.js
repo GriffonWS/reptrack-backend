@@ -1,16 +1,16 @@
 import { DataTypes } from "sequelize";
-import { sequelize } from "../config/mysql.js";
+import sequelize from "../config/database.js";
 
-export const ExerciseDetails = sequelize.define(
-  "exercise_details",
+const ExerciseDetails = sequelize.define(
+  "ExerciseDetails",
   {
     id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.BIGINT,
       autoIncrement: true,
       primaryKey: true,
     },
     user_id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.BIGINT,
       allowNull: false,
     },
     equipment_number: {
@@ -41,6 +41,11 @@ export const ExerciseDetails = sequelize.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
+    exercise_date: {
+      type: DataTypes.DATEONLY,
+      allowNull: false,
+      defaultValue: DataTypes.NOW,
+    },
     free_weight_exercise: {
       type: DataTypes.STRING,
       allowNull: true,
@@ -48,10 +53,6 @@ export const ExerciseDetails = sequelize.define(
     other_exercise: {
       type: DataTypes.STRING,
       allowNull: true,
-    },
-    exercise_date: {
-      type: DataTypes.DATEONLY,
-      defaultValue: DataTypes.NOW,
     },
   },
   {

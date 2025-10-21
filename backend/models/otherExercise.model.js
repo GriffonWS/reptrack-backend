@@ -1,8 +1,8 @@
 import { DataTypes } from "sequelize";
-import { sequelize } from "../config/mysql.js";
+import sequelize from "../config/database.js";
 
-export const OtherExercise = sequelize.define(
-  "other_exercise",
+const OtherExercise = sequelize.define(
+  "OtherExercise",
   {
     id: {
       type: DataTypes.BIGINT,
@@ -27,7 +27,6 @@ export const OtherExercise = sequelize.define(
     },
     timestamp: {
       type: DataTypes.DATE,
-      allowNull: false,
       defaultValue: DataTypes.NOW,
     },
   },
@@ -36,3 +35,5 @@ export const OtherExercise = sequelize.define(
     timestamps: false,
   }
 );
+
+export default OtherExercise;

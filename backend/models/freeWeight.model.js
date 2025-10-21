@@ -1,11 +1,11 @@
 import { DataTypes } from "sequelize";
-import { sequelize } from "../config/mysql.js";
+import sequelize from "../config/database.js";
 
-export const FreeWeight = sequelize.define(
-  "free_weights",
+const FreeWeight = sequelize.define(
+  "FreeWeight",
   {
     id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.BIGINT,
       autoIncrement: true,
       primaryKey: true,
     },
@@ -14,11 +14,11 @@ export const FreeWeight = sequelize.define(
       allowNull: false,
     },
     exercise_details: {
-      type: DataTypes.TEXT,
+      type: DataTypes.STRING,
       allowNull: false,
     },
     gym_owner_id: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.BIGINT,
       allowNull: false,
     },
     timestamp: {
@@ -32,3 +32,5 @@ export const FreeWeight = sequelize.define(
     timestamps: false,
   }
 );
+
+export default FreeWeight;
