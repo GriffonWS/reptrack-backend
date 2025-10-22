@@ -1,0 +1,550 @@
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import GymOwner from '../models/gymOwner.model.js';
+import Admin from '../models/admin.model.js';
+
+// Register GymOwner (Admin only)
+export const registerGymOwner = async (req, res) => {
+  try {
+    const { gymName, ownerName, email, phoneNumber, address, subscriptionType } = req.body;
+    const adminId = req.admin.id; // From middleware
+    
+    // Validate required fields
+    if (!gymName || !ownerName || !email || !phoneNumber || !address || !subscriptionType) {
+      return res.status(400).json({
+        success: false,
+        message: 'All fields are required',
+        data: null
+      });
+    }
+
+    // Check if gym owner already exists
+    const existingGymOwner = await GymOwner.findOne({ where: { email } });
+    if (existingGymOwner) {
+      return res.status(400).json({
+        success: false,
+        message: 'Gym owner with this email already exists',
+        data: null
+      });
+    }
+
+    // Generate temporary password
+    const tempPassword = Math.random().toString(36).substring(2, 10);
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+    // Create new gym owner
+    const gymOwner = await GymOwner.create({
+      gymName,
+      ownerName,
+      email,
+      phoneNumber,
+      address,
+      subscriptionType,
+      password: hashedPassword,
+      adminId,
+      active: true
+    });
+
+    // Remove sensitive data from response
+    const gymOwnerData = gymOwner.toJSON();
+    delete gymOwnerData.password;
+    gymOwnerData.tempPassword = tempPassword; // Return temp password for admin to share
+
+    return res.status(200).json({
+      success: true,
+      message: 'Gym owner registered successfully',
+      data: gymOwnerData
+    });
+  } catch (error) {
+    console.error('Register gym owner error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Internal server error',
+      data: null
+    });
+  }
+};
+
+// Get All Gym Owners (Admin only)
+export const getAllGymOwners = async (req, res) => {
+  try {
+    const gymOwners = await GymOwner.findAll({
+      attributes: { exclude: ['password'] }
+    });
+
+    if (gymOwners.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: 'No gym owners found',
+        data: []
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Gym owners retrieved successfully',
+      data: gymOwners
+    });
+  } catch (error) {
+    console.error('Get all gym owners error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Internal server error',
+      data: null
+    });
+  }
+};
+
+// Get Gym Owner by ID (Admin only)
+export const getGymOwnerById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const gymOwner = await GymOwner.findByPk(id, {
+      attributes: { exclude: ['password'] }
+    });
+
+    if (!gymOwner) {
+      return res.status(404).json({
+        success: false,
+        message: 'Gym owner not found',
+        data: null
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Gym owner retrieved successfully',
+      data: gymOwner
+    });
+  } catch (error) {
+    console.error('Get gym owner by ID error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Internal server error',
+      data: null
+    });
+  }
+};
+
+// Login GymOwner
+export const loginGymOwner = async (req, res) => {
+  try {
+    const { uniqueId, password } = req.body;
+
+    // Validate required fields
+    if (!uniqueId || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Unique ID and password are required',
+        data: null
+      });
+    }
+
+    // Find gym owner by unique ID
+    const gymOwner = await GymOwner.findOne({ where: { uniqueId } });
+    if (!gymOwner) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials',
+        data: null
+      });
+    }
+
+    // Check if gym owner is active
+    if (!gymOwner.active) {
+      return res.status(401).json({
+        success: false,
+        message: 'Gym owner account is inactive',
+        data: null
+      });
+    }
+
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, gymOwner.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid credentials',
+        data: null
+      });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      {
+        id: gymOwner.id,
+        email: gymOwner.email,
+        uniqueId: gymOwner.uniqueId,
+        role: 'gym_owner'
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
+    );
+
+    // Save token to database
+    gymOwner.token = token;
+    await gymOwner.save();
+
+    // Remove password from response
+    const gymOwnerData = gymOwner.toJSON();
+    delete gymOwnerData.password;
+    gymOwnerData.token = token;
+
+    return res.status(200).json({
+      success: true,
+      message: 'Login successful',
+      data: gymOwnerData
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Internal server error',
+      data: null
+    });
+  }
+};
+
+// Get GymOwner by Token
+export const getGymOwnerByToken = async (req, res) => {
+  try {
+    const token = req.token;
+    const gymOwnerId = req.gymOwner.id;
+
+    // Find gym owner by ID and verify token
+    const gymOwner = await GymOwner.findOne({
+      where: {
+        id: gymOwnerId,
+        token: token
+      },
+      attributes: { exclude: ['password'] }
+    });
+
+    if (!gymOwner) {
+      return res.status(404).json({
+        success: false,
+        message: 'Gym owner not found or invalid token',
+        data: null
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Gym owner retrieved successfully',
+      data: gymOwner
+    });
+  } catch (error) {
+    console.error('Get gym owner error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Internal server error',
+      data: null
+    });
+  }
+};
+
+// Update GymOwner Profile (Own profile)
+export const updateGymOwner = async (req, res) => {
+  try {
+    const token = req.token;
+    const gymOwnerId = req.gymOwner.id;
+    const { gymName, ownerName, phoneNumber, address } = req.body;
+
+    // Prevent email update through this endpoint
+    const updatedData = {};
+    if (gymName !== undefined) updatedData.gymName = gymName;
+    if (ownerName !== undefined) updatedData.ownerName = ownerName;
+    if (phoneNumber !== undefined) updatedData.phoneNumber = phoneNumber;
+    if (address !== undefined) updatedData.address = address;
+
+    // Handle file uploads
+    if (req.files) {
+      if (req.files.profileImage) {
+        updatedData.profileImage = req.files.profileImage[0].path; // Store file path
+      }
+      if (req.files.gymLogo) {
+        updatedData.gymLogo = req.files.gymLogo[0].path; // Store file path
+      }
+    }
+
+    // Find gym owner
+    const gymOwner = await GymOwner.findOne({
+      where: {
+        id: gymOwnerId,
+        token: token
+      }
+    });
+
+    if (!gymOwner) {
+      return res.status(404).json({
+        success: false,
+        message: 'Gym owner not found or invalid token',
+        data: null
+      });
+    }
+
+    // Update fields
+    await gymOwner.update(updatedData);
+
+    // Remove password from response
+    const gymOwnerData = gymOwner.toJSON();
+    delete gymOwnerData.password;
+
+    return res.status(200).json({
+      success: true,
+      message: 'Gym owner updated successfully',
+      data: gymOwnerData
+    });
+  } catch (error) {
+    console.error('Update gym owner error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Internal server error',
+      data: null
+    });
+  }
+};
+
+// Update GymOwner by ID (Admin only)
+export const updateGymOwnerById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { gymName, ownerName, email, phoneNumber, address, active, subscriptionType } = req.body;
+
+    // Find gym owner by ID
+    const gymOwner = await GymOwner.findByPk(id);
+
+    if (!gymOwner) {
+      return res.status(404).json({
+        success: false,
+        message: 'Gym owner not found',
+        data: null
+      });
+    }
+
+    // Update fields
+    const updatedData = {};
+    if (gymName !== undefined) updatedData.gymName = gymName;
+    if (ownerName !== undefined) updatedData.ownerName = ownerName;
+    if (email !== undefined) updatedData.email = email;
+    if (phoneNumber !== undefined) updatedData.phoneNumber = phoneNumber;
+    if (address !== undefined) updatedData.address = address;
+    if (active !== undefined) updatedData.active = active;
+    if (subscriptionType !== undefined) updatedData.subscriptionType = subscriptionType;
+
+    // Handle file uploads
+    if (req.files) {
+      if (req.files.profileImage) {
+        updatedData.profileImage = req.files.profileImage[0].path;
+      }
+      if (req.files.gymLogo) {
+        updatedData.gymLogo = req.files.gymLogo[0].path;
+      }
+    }
+
+    await gymOwner.update(updatedData);
+
+    // Remove password from response
+    const gymOwnerData = gymOwner.toJSON();
+    delete gymOwnerData.password;
+
+    return res.status(200).json({
+      success: true,
+      message: 'Gym owner updated successfully',
+      data: gymOwnerData
+    });
+  } catch (error) {
+    console.error('Update gym owner by ID error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Internal server error',
+      data: null
+    });
+  }
+};
+
+// Delete GymOwner by ID (Admin only)
+export const deleteGymOwner = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const gymOwner = await GymOwner.findByPk(id);
+
+    if (!gymOwner) {
+      return res.status(404).json({
+        success: false,
+        message: 'Gym owner not found',
+        data: null
+      });
+    }
+
+    await gymOwner.destroy();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Gym owner deleted successfully',
+      data: 'Gym owner deleted'
+    });
+  } catch (error) {
+    console.error('Delete gym owner error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Internal server error',
+      data: null
+    });
+  }
+};
+
+// Delete GymOwner by Token
+export const deleteGymOwnerByToken = async (req, res) => {
+  try {
+    const token = req.token;
+    const gymOwnerId = req.gymOwner.id;
+
+    const gymOwner = await GymOwner.findOne({
+      where: {
+        id: gymOwnerId,
+        token: token
+      }
+    });
+
+    if (!gymOwner) {
+      return res.status(404).json({
+        success: false,
+        message: 'Gym owner not found or invalid token',
+        data: null
+      });
+    }
+
+    await gymOwner.destroy();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Gym owner deleted successfully',
+      data: 'Gym owner deleted'
+    });
+  } catch (error) {
+    console.error('Delete gym owner error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Internal server error',
+      data: null
+    });
+  }
+};
+
+// Change Password
+export const changePassword = async (req, res) => {
+  try {
+    const token = req.token;
+    const gymOwnerId = req.gymOwner.id;
+    const { oldPassword, newPassword, confirmPassword } = req.body;
+
+    // Validate required fields
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'All password fields are required',
+        data: null
+      });
+    }
+
+    // Validate new password and confirm password match
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password and confirm password do not match',
+        data: null
+      });
+    }
+
+    // Find gym owner
+    const gymOwner = await GymOwner.findOne({
+      where: {
+        id: gymOwnerId,
+        token: token
+      }
+    });
+
+    if (!gymOwner) {
+      return res.status(404).json({
+        success: false,
+        message: 'Gym owner not found or invalid token',
+        data: null
+      });
+    }
+
+    // Verify old password
+    const isOldPasswordValid = await bcrypt.compare(oldPassword, gymOwner.password);
+    if (!isOldPasswordValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Old password is incorrect',
+        data: null
+      });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    gymOwner.password = hashedPassword;
+    await gymOwner.save();
+
+    // Remove password from response
+    const gymOwnerData = gymOwner.toJSON();
+    delete gymOwnerData.password;
+
+    return res.status(200).json({
+      success: true,
+      message: 'Password changed successfully',
+      data: gymOwnerData
+    });
+  } catch (error) {
+    console.error('Change password error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Internal server error',
+      data: null
+    });
+  }
+};
+
+// Logout
+export const logout = async (req, res) => {
+  try {
+    const token = req.token;
+    const gymOwnerId = req.gymOwner.id;
+
+    const gymOwner = await GymOwner.findOne({
+      where: {
+        id: gymOwnerId,
+        token: token
+      }
+    });
+
+    if (!gymOwner) {
+      return res.status(404).json({
+        success: false,
+        message: 'Gym owner not found',
+        data: null
+      });
+    }
+
+    // Clear token
+    gymOwner.token = null;
+    await gymOwner.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Logout successful',
+      data: 'Logged out successfully'
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Internal server error',
+      data: null
+    });
+  }
+};
