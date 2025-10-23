@@ -14,7 +14,7 @@ import {
   updateUserById,
   removeUserById
 } from '../controllers/user.controller.js';
-import { verifyToken } from '../middleware/auth.middleware.js';
+import { verifyGymOwnerToken, verifyToken } from '../middleware/auth.middleware.js';
 import { upload } from '../middleware/upload.middleware.js';
 
 const router = express.Router();
@@ -33,7 +33,7 @@ router.delete('/remove', verifyToken, removeUser);
 router.get('/getUser', verifyToken, getUser);
 
 // Protected routes - Gym Owner (for managing users)
-router.get('/all-users', verifyToken, getAllUsers);
+router.get('/all-users', verifyGymOwnerToken, getAllUsers);
 router.get('/get-user-details/:id', verifyToken, getUserById);
 router.put('/update/:id', verifyToken, upload.single('profileImage'), updateUserById);
 router.delete('/remove/:id', verifyToken, removeUserById);
