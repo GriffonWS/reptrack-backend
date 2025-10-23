@@ -460,28 +460,18 @@ export const getUser = async (req, res) => {
 // Get All Users (Gym Owner)
 export const getAllUsers = async (req, res) => {
   try {
-    console.log('=== getAllUsers Debug ===');
-    console.log('req.gymOwner:', req.gymOwner);
-    console.log('req.token:', req.token);
-
     const gymOwnerId = req.gymOwner.id;
-    console.log('gymOwnerId:', gymOwnerId);
-
     const { page = 0, size = 10 } = req.query;
 
     const offset = parseInt(page) * parseInt(size);
     const limit = parseInt(size);
 
-    console.log('Querying users with gymOwnerId:', gymOwnerId);
     const { count, rows } = await User.findAndCountAll({
       where: { gymOwnerId },
       limit,
       offset,
       order: [['id', 'DESC']]
     });
-
-    console.log('Found users count:', count);
-    console.log('Found users rows:', rows.length);
 
     // Remove sensitive data
     const users = rows.map(user => {
@@ -504,7 +494,6 @@ export const getAllUsers = async (req, res) => {
     });
   } catch (error) {
     console.error('Get all users error:', error);
-    console.error('Error stack:', error.stack);
     return res.status(500).json({
       success: false,
       message: error.message || 'Internal server error',

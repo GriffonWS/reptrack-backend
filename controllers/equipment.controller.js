@@ -1,24 +1,11 @@
 import Equipment from "../models/equipment.model.js";
-import Admin from "../models/admin.model.js";
-import jwt from "jsonwebtoken";
 import { uploadToS3 } from "../utils/uploadToS3.js";
 
 export const createEquipment = async (req, res) => {
   try {
-    const token = req.token;
+    const gymOwnerId = req.gymOwner.id;
     const { equipment_name, category, equipment_number } = req.body;
     const file = req.file;
-
-    // Verify admin token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const admin = await Admin.findOne({ where: { id: decoded.id, token } });
-
-    if (!admin) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized. Only authorized users can create equipment.",
-      });
-    }
 
     if (!equipment_name || !equipment_number) {
       return res.status(400).json({
@@ -51,7 +38,7 @@ export const createEquipment = async (req, res) => {
       category,
       equipment_number,
       equipment_image: imageUrl,
-      gym_owner_id: admin.id,
+      gym_owner_id: gymOwnerId,
     });
 
     res.status(201).json({
@@ -71,23 +58,15 @@ export const createEquipment = async (req, res) => {
 
 export const updateEquipment = async (req, res) => {
   try {
-    const token = req.token;
+    const gymOwnerId = req.gymOwner.id;
     const { id } = req.params;
     const { equipment_name, category, equipment_number } = req.body;
     const file = req.file;
 
-    // Verify admin token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const admin = await Admin.findOne({ where: { id: decoded.id, token } });
+    const equipment = await Equipment.findOne({
+      where: { id, gym_owner_id: gymOwnerId }
+    });
 
-    if (!admin) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized. Only authorized users can update equipment.",
-      });
-    }
-
-    const equipment = await Equipment.findByPk(id);
     if (!equipment) {
       return res
         .status(404)
@@ -137,21 +116,13 @@ export const updateEquipment = async (req, res) => {
 
 export const deleteEquipment = async (req, res) => {
   try {
-    const token = req.token;
+    const gymOwnerId = req.gymOwner.id;
     const { id } = req.params;
 
-    // Verify admin token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const admin = await Admin.findOne({ where: { id: decoded.id, token } });
+    const equipment = await Equipment.findOne({
+      where: { id, gym_owner_id: gymOwnerId }
+    });
 
-    if (!admin) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized. Only authorized users can delete equipment.",
-      });
-    }
-
-    const equipment = await Equipment.findByPk(id);
     if (!equipment) {
       return res
         .status(404)
@@ -175,8 +146,13 @@ export const deleteEquipment = async (req, res) => {
 
 export const getEquipment = async (req, res) => {
   try {
+    const gymOwnerId = req.gymOwner.id;
     const { id } = req.params;
-    const equipment = await Equipment.findByPk(id);
+
+    const equipment = await Equipment.findOne({
+      where: { id, gym_owner_id: gymOwnerId }
+    });
+
     if (!equipment) {
       return res
         .status(404)
@@ -194,21 +170,10 @@ export const getEquipment = async (req, res) => {
 
 export const getAllEquipment = async (req, res) => {
   try {
-    const token = req.token;
-
-    // Verify admin token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const admin = await Admin.findOne({ where: { id: decoded.id, token } });
-
-    if (!admin) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized access.",
-      });
-    }
+    const gymOwnerId = req.gymOwner.id;
 
     const equipments = await Equipment.findAll({
-      where: { gym_owner_id: admin.id },
+      where: { gym_owner_id: gymOwnerId },
     });
 
     res.json({ success: true, data: equipments });
@@ -223,22 +188,11 @@ export const getAllEquipment = async (req, res) => {
 
 export const getEquipmentByCategory = async (req, res) => {
   try {
-    const token = req.token;
+    const gymOwnerId = req.gymOwner.id;
     const { category } = req.query;
 
-    // Verify admin token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const admin = await Admin.findOne({ where: { id: decoded.id, token } });
-
-    if (!admin) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized access.",
-      });
-    }
-
     const equipments = await Equipment.findAll({
-      where: { category, gym_owner_id: admin.id },
+      where: { category, gym_owner_id: gymOwnerId },
     });
 
     res.json({ success: true, data: equipments });
@@ -253,9 +207,11 @@ export const getEquipmentByCategory = async (req, res) => {
 
 export const getEquipmentByNumber = async (req, res) => {
   try {
+    const gymOwnerId = req.gymOwner.id;
     const { equipment_number } = req.params;
+
     const equipment = await Equipment.findOne({
-      where: { equipment_number },
+      where: { equipment_number, gym_owner_id: gymOwnerId },
     });
 
     if (!equipment) {

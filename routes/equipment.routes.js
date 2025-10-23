@@ -9,28 +9,27 @@ import {
   getEquipmentByCategory,
   getEquipmentByNumber,
 } from "../controllers/equipment.controller.js";
-import { verifyToken } from "../middleware/auth.middleware.js";
+import { verifyGymOwnerToken } from "../middleware/auth.middleware.js";
 
 const router = express.Router();
 
-// Routes with memory storage multer (for S3 upload)
-// ✅ Changed from "equipmentImage" to "equipment_image" to match form-data field name
+// Protected routes - Gym Owner
 router.post(
   "/create",
-  verifyToken,
+  verifyGymOwnerToken,
   upload.single("equipment_image"),
   createEquipment
 );
 router.put(
   "/update/:id",
-  verifyToken,
+  verifyGymOwnerToken,
   upload.single("equipment_image"),
   updateEquipment
 );
-router.delete("/delete/:id", verifyToken, deleteEquipment);
-router.get("/get/:id", verifyToken, getEquipment);
-router.get("/all", verifyToken, getAllEquipment);
-router.get("/category", verifyToken, getEquipmentByCategory);
-router.get("/equipmentNumber/:equipment_number", getEquipmentByNumber);
+router.delete("/delete/:id", verifyGymOwnerToken, deleteEquipment);
+router.get("/get/:id", verifyGymOwnerToken, getEquipment);
+router.get("/all", verifyGymOwnerToken, getAllEquipment);
+router.get("/category", verifyGymOwnerToken, getEquipmentByCategory);
+router.get("/equipmentNumber/:equipment_number", verifyGymOwnerToken, getEquipmentByNumber);
 
 export default router;
