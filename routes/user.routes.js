@@ -34,8 +34,8 @@ router.get('/getUser', verifyToken, getUser);
 
 // Protected routes - Gym Owner (for managing users)
 router.get('/all-users', verifyGymOwnerToken, getAllUsers);
-router.get('/get-user-details/:id', verifyToken, getUserById);
-router.put('/update/:id', verifyToken, upload.single('profileImage'), updateUserById);
-router.delete('/remove/:id', verifyToken, removeUserById);
+router.get('/get-user-details/:id', verifyGymOwnerToken, getUserById);
+router.put('/update/:id', verifyGymOwnerToken, upload.single('profileImage'), updateUserById);
+router.delete('/remove/:id', verifyGymOwnerToken, removeUserById);
 
 export default router;

@@ -460,29 +460,28 @@ export const getUser = async (req, res) => {
 // Get All Users (Gym Owner)
 export const getAllUsers = async (req, res) => {
   try {
-    const token = req.token;
-    const { page = 0, size = 10 } = req.query;
+    console.log('=== getAllUsers Debug ===');
+    console.log('req.gymOwner:', req.gymOwner);
+    console.log('req.token:', req.token);
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const admin = await Admin.findOne({ where: { id: decoded.id, token } });
-    
-    if (!admin) {
-      return res.status(401).json({
-        success: false,
-        message: 'Unauthorized',
-        data: null
-      });
-    }
+    const gymOwnerId = req.gymOwner.id;
+    console.log('gymOwnerId:', gymOwnerId);
+
+    const { page = 0, size = 10 } = req.query;
 
     const offset = parseInt(page) * parseInt(size);
     const limit = parseInt(size);
 
+    console.log('Querying users with gymOwnerId:', gymOwnerId);
     const { count, rows } = await User.findAndCountAll({
-      where: { gymOwnerId: admin.id },
+      where: { gymOwnerId },
       limit,
       offset,
       order: [['id', 'DESC']]
     });
+
+    console.log('Found users count:', count);
+    console.log('Found users rows:', rows.length);
 
     // Remove sensitive data
     const users = rows.map(user => {
@@ -505,6 +504,7 @@ export const getAllUsers = async (req, res) => {
     });
   } catch (error) {
     console.error('Get all users error:', error);
+    console.error('Error stack:', error.stack);
     return res.status(500).json({
       success: false,
       message: error.message || 'Internal server error',
@@ -516,22 +516,11 @@ export const getAllUsers = async (req, res) => {
 // Get User By ID (Gym Owner)
 export const getUserById = async (req, res) => {
   try {
-    const token = req.token;
+    const gymOwnerId = req.gymOwner.id;
     const { id } = req.params;
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const admin = await Admin.findOne({ where: { id: decoded.id, token } });
-    
-    if (!admin) {
-      return res.status(401).json({
-        success: false,
-        message: 'Unauthorized',
-        data: null
-      });
-    }
-
-    const user = await User.findOne({ 
-      where: { id, gymOwnerId: admin.id }
+    const user = await User.findOne({
+      where: { id, gymOwnerId }
     });
 
     if (!user) {
@@ -564,7 +553,7 @@ export const getUserById = async (req, res) => {
 // Update User By ID (Gym Owner)
 export const updateUserById = async (req, res) => {
   try {
-    const token = req.token;
+    const gymOwnerId = req.gymOwner.id;
     const { id } = req.params;
     const {
       firstName,
@@ -582,19 +571,8 @@ export const updateUserById = async (req, res) => {
       active
     } = req.body;
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const admin = await Admin.findOne({ where: { id: decoded.id, token } });
-    
-    if (!admin) {
-      return res.status(401).json({
-        success: false,
-        message: 'Unauthorized',
-        data: null
-      });
-    }
-
-    const user = await User.findOne({ 
-      where: { id, gymOwnerId: admin.id }
+    const user = await User.findOne({
+      where: { id, gymOwnerId }
     });
 
     if (!user) {
@@ -645,22 +623,11 @@ export const updateUserById = async (req, res) => {
 // Remove User By ID (Gym Owner)
 export const removeUserById = async (req, res) => {
   try {
-    const token = req.token;
+    const gymOwnerId = req.gymOwner.id;
     const { id } = req.params;
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const admin = await Admin.findOne({ where: { id: decoded.id, token } });
-    
-    if (!admin) {
-      return res.status(401).json({
-        success: false,
-        message: 'Unauthorized',
-        data: null
-      });
-    }
-
-    const user = await User.findOne({ 
-      where: { id, gymOwnerId: admin.id }
+    const user = await User.findOne({
+      where: { id, gymOwnerId }
     });
 
     if (!user) {
