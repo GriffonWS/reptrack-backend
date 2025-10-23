@@ -24,8 +24,8 @@ router.post('/login', loginUser);
 router.post('/verify-otp', verifyOtp);
 router.post('/resend-otp', resendOtp);
 
-// Protected routes - User  
-router.post('/register', verifyToken, upload.single('profileImage'), registerUser);
+// Protected routes - User
+router.post('/register', verifyGymOwnerToken, upload.single('profileImage'), registerUser);
 router.put('/update', verifyToken, upload.single('profileImage'), updateUser);
 router.get('/logout', verifyToken, logoutUser);
 router.delete('/delete', verifyToken, deleteUser);

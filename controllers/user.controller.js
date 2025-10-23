@@ -1,6 +1,5 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/user.model.js';
-import Admin from '../models/admin.model.js';
 
 // Helper function to generate OTP
 const generateOTP = () => {
@@ -10,7 +9,7 @@ const generateOTP = () => {
 // Register User (Gym Owner only)
 export const registerUser = async (req, res) => {
   try {
-    const token = req.token;
+    const gymOwnerId = req.gymOwner.id;
     const {
       firstName,
       lastName,
@@ -25,18 +24,6 @@ export const registerUser = async (req, res) => {
       deviceToken,
       firebaseToken
     } = req.body;
-
-    // Verify if requester is Gym Owner (check from Admin table)
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const admin = await Admin.findOne({ where: { id: decoded.id, token } });
-    
-    if (!admin) {
-      return res.status(401).json({
-        success: false,
-        message: 'Unauthorized. Only Gym Owners can register users.',
-        data: null
-      });
-    }
 
     // Check if user already exists
     const existingUser = await User.findOne({ where: { phone } });
@@ -57,7 +44,7 @@ export const registerUser = async (req, res) => {
       lastName,
       phone,
       email,
-      gymOwnerId: admin.id,
+      gymOwnerId,
       subscriptionType,
       dateOfJoining,
       dateOfBirth,
