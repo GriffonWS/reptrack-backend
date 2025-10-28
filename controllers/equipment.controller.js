@@ -1,5 +1,6 @@
 import Equipment from "../models/equipment.model.js";
 import { uploadToS3 } from "../utils/uploadToS3.js";
+import { Op } from "sequelize";
 
 export const createEquipment = async (req, res) => {
   try {
@@ -100,6 +101,9 @@ export const updateEquipment = async (req, res) => {
       equipment_image: imageUrl,
     });
 
+    // Reload to get fresh data
+    await equipment.reload();
+
     res.json({
       success: true,
       message: "Equipment updated successfully",
@@ -191,12 +195,36 @@ export const getEquipmentByCategory = async (req, res) => {
     const gymOwnerId = req.gymOwner.id;
     const { category } = req.query;
 
+    console.log('🔍 Searching for category:', category);
+    console.log('🔍 Gym Owner ID:', gymOwnerId);
+
+    if (!category) {
+      return res.status(400).json({
+        success: false,
+        message: "Category parameter is required",
+        data: null
+      });
+    }
+
+    // Case-insensitive search using LIKE
     const equipments = await Equipment.findAll({
-      where: { category, gym_owner_id: gymOwnerId },
+      where: {
+        category: {
+          [Op.like]: category // Case-insensitive match
+        },
+        gym_owner_id: gymOwnerId
+      },
     });
 
-    res.json({ success: true, data: equipments });
+    console.log('✅ Found equipments:', equipments.length);
+
+    res.json({
+      success: true,
+      message: `Found ${equipments.length} equipment(s) in category: ${category}`,
+      data: equipments
+    });
   } catch (error) {
+    console.error('❌ Error fetching equipment by category:', error);
     res.status(500).json({
       success: false,
       message: "Error fetching equipment by category",

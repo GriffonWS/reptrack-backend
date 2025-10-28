@@ -1,5 +1,7 @@
-import jwt from 'jsonwebtoken';
-import User from '../models/user.model.js';
+import jwt from "jsonwebtoken";
+import User from "../models/user.model.js";
+import { uploadToS3 } from "../utils/uploadToS3.js";
+import { sendOTP } from "../config/twilio.js";
 
 // Helper function to generate OTP
 const generateOTP = () => {
@@ -22,7 +24,7 @@ export const registerUser = async (req, res) => {
       healthInfo,
       weight,
       deviceToken,
-      firebaseToken
+      firebaseToken,
     } = req.body;
 
     // Check if user already exists
@@ -30,13 +32,23 @@ export const registerUser = async (req, res) => {
     if (existingUser) {
       return res.status(400).json({
         success: false,
-        message: 'User with this phone number already exists',
-        data: null
+        message: "User with this phone number already exists",
+        data: null,
       });
     }
 
-    // Handle profile image
-    const profileImage = req.file ? req.file.filename : null;
+    // Handle profile image upload to S3
+    let profileImageUrl = null;
+    if (req.file) {
+      try {
+        profileImageUrl = await uploadToS3(req.file);
+        if (!profileImageUrl) {
+          console.warn("⚠️ Profile image upload returned null");
+        }
+      } catch (error) {
+        console.error("⚠️ Profile image upload failed:", error.message);
+      }
+    }
 
     // Create user
     const user = await User.create({
@@ -51,9 +63,9 @@ export const registerUser = async (req, res) => {
       gender,
       healthInfo,
       weight,
-      profileImage,
+      profileImage: profileImageUrl,
       deviceToken,
-      firebaseToken
+      firebaseToken,
     });
 
     // Remove sensitive data
@@ -63,15 +75,15 @@ export const registerUser = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'User registered successfully',
-      data: userData
+      message: "User registered successfully",
+      data: userData,
     });
   } catch (error) {
-    console.error('Register user error:', error);
+    console.error("Register user error:", error);
     return res.status(500).json({
       success: false,
-      message: error.message || 'Internal server error',
-      data: null
+      message: error.message || "Internal server error",
+      data: null,
     });
   }
 };
@@ -84,26 +96,52 @@ export const loginUser = async (req, res) => {
     if (!uniqueId || !phone) {
       return res.status(400).json({
         success: false,
-        message: 'UniqueId and phone are required',
-        data: null
+        message: "UniqueId and phone are required",
+        data: null,
       });
     }
 
+    // Debug logging
+    console.log('🔍 Login attempt:');
+    console.log('  UniqueId:', uniqueId);
+    console.log('  Phone:', phone);
+
     // Find user
     const user = await User.findOne({ where: { uniqueId, phone } });
+
     if (!user) {
+      console.log('❌ User not found with uniqueId:', uniqueId, 'and phone:', phone);
+
+      // Check if user exists with uniqueId only
+      const userByUniqueId = await User.findOne({ where: { uniqueId } });
+      if (userByUniqueId) {
+        console.log('⚠️ User found with uniqueId but phone mismatch!');
+        console.log('  Stored phone:', userByUniqueId.phone);
+        console.log('  Provided phone:', phone);
+      }
+
+      // Check if user exists with phone only
+      const userByPhone = await User.findOne({ where: { phone } });
+      if (userByPhone) {
+        console.log('⚠️ User found with phone but uniqueId mismatch!');
+        console.log('  Stored uniqueId:', userByPhone.uniqueId);
+        console.log('  Provided uniqueId:', uniqueId);
+      }
+
       return res.status(404).json({
         success: false,
-        message: 'User not found',
-        data: null
+        message: "User not found with provided uniqueId and phone combination",
+        data: null,
       });
     }
+
+    console.log('✅ User found:', user.id);
 
     if (!user.active) {
       return res.status(403).json({
         success: false,
-        message: 'User account is deactivated',
-        data: null
+        message: "User account is deactivated",
+        data: null,
       });
     }
 
@@ -114,25 +152,58 @@ export const loginUser = async (req, res) => {
     if (deviceToken) user.deviceToken = deviceToken;
     await user.save();
 
-    // In production, send OTP via SMS
-    console.log(`OTP for ${phone}: ${otp}`);
-
-    return res.status(200).json({
-      success: true,
-      message: 'OTP sent successfully',
-      data: {
-        phone: user.phone,
-        otpSent: true,
-        // For testing only - remove in production
-        otp: process.env.NODE_ENV === 'development' ? otp : undefined
+    // Send OTP via Twilio SMS
+    try {
+      // Ensure phone number has country code
+      let formattedPhone = phone;
+      if (!phone.startsWith("+")) {
+        // Add +1 for US numbers by default (change based on your country)
+        formattedPhone = `+91${phone}`;
       }
-    });
+
+      await sendOTP(formattedPhone, otp);
+      console.log(`✅ OTP sent to ${formattedPhone}: ${otp}`);
+
+      return res.status(200).json({
+        success: true,
+        message: "OTP sent successfully to your phone",
+        data: {
+          phone: user.phone,
+          otpSent: true,
+          // For testing only - remove in production
+          otp: process.env.NODE_ENV === "development" ? otp : undefined,
+        },
+      });
+    } catch (smsError) {
+      console.error("⚠️ Failed to send SMS:", smsError.message);
+
+      // Still return success with OTP in development mode
+      if (process.env.NODE_ENV === "development") {
+        console.log(`⚠️ Development mode: OTP is ${otp}`);
+        return res.status(200).json({
+          success: true,
+          message: "OTP generated (SMS failed, check console)",
+          data: {
+            phone: user.phone,
+            otpSent: false,
+            otp: otp, // Only in development
+          },
+        });
+      }
+
+      // In production, return error
+      return res.status(500).json({
+        success: false,
+        message: "Failed to send OTP. Please try again.",
+        data: null,
+      });
+    }
   } catch (error) {
-    console.error('Login error:', error);
+    console.error("Login error:", error);
     return res.status(500).json({
       success: false,
-      message: error.message || 'Internal server error',
-      data: null
+      message: error.message || "Internal server error",
+      data: null,
     });
   }
 };
@@ -145,8 +216,8 @@ export const verifyOtp = async (req, res) => {
     if (!otp || !phone) {
       return res.status(400).json({
         success: false,
-        message: 'OTP and phone are required',
-        data: null
+        message: "OTP and phone are required",
+        data: null,
       });
     }
 
@@ -154,8 +225,8 @@ export const verifyOtp = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found',
-        data: null
+        message: "User not found",
+        data: null,
       });
     }
 
@@ -164,8 +235,8 @@ export const verifyOtp = async (req, res) => {
     if (otpAge > 5) {
       return res.status(400).json({
         success: false,
-        message: 'OTP expired. Please request a new one.',
-        data: null
+        message: "OTP expired. Please request a new one.",
+        data: null,
       });
     }
 
@@ -173,16 +244,16 @@ export const verifyOtp = async (req, res) => {
     if (user.otp !== otp) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid OTP',
-        data: null
+        message: "Invalid OTP",
+        data: null,
       });
     }
 
     // Generate JWT token
     const token = jwt.sign(
-      { id: user.id, phone: user.phone, role: 'user' },
+      { id: user.id, phone: user.phone, role: "user" },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
+      { expiresIn: process.env.JWT_EXPIRES_IN || "24h" }
     );
 
     // Update user
@@ -198,15 +269,15 @@ export const verifyOtp = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'OTP verified successfully',
-      data: userData
+      message: "OTP verified successfully",
+      data: userData,
     });
   } catch (error) {
-    console.error('Verify OTP error:', error);
+    console.error("Verify OTP error:", error);
     return res.status(500).json({
       success: false,
-      message: error.message || 'Internal server error',
-      data: null
+      message: error.message || "Internal server error",
+      data: null,
     });
   }
 };
@@ -215,7 +286,7 @@ export const verifyOtp = async (req, res) => {
 export const updateUser = async (req, res) => {
   try {
     const token = req.token;
-    const userId = req.admin.id;
+    const userId = req.user.id;
     const {
       firstName,
       lastName,
@@ -224,15 +295,15 @@ export const updateUser = async (req, res) => {
       emergencyPhone,
       height,
       weight,
-      gender
+      gender,
     } = req.body;
 
     const user = await User.findOne({ where: { id: userId, token } });
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found',
-        data: null
+        message: "User not found",
+        data: null,
       });
     }
 
@@ -245,8 +316,26 @@ export const updateUser = async (req, res) => {
     if (height !== undefined) user.height = height;
     if (weight !== undefined) user.weight = weight;
     if (gender !== undefined) user.gender = gender;
-    if (req.file) user.profileImage = req.file.filename;
-    
+
+    // Handle profile image upload to S3
+    if (req.file) {
+      try {
+        const profileImageUrl = await uploadToS3(req.file);
+        if (profileImageUrl) {
+          user.profileImage = profileImageUrl;
+        } else {
+          console.warn(
+            "⚠️ Profile image upload returned null, keeping existing image"
+          );
+        }
+      } catch (error) {
+        console.error(
+          "⚠️ Profile image upload failed, keeping existing image:",
+          error.message
+        );
+      }
+    }
+
     user.isProfileUpdated = true;
     await user.save();
 
@@ -256,15 +345,15 @@ export const updateUser = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'User profile updated successfully',
-      data: userData
+      message: "User profile updated successfully",
+      data: userData,
     });
   } catch (error) {
-    console.error('Update user error:', error);
+    console.error("Update user error:", error);
     return res.status(500).json({
       success: false,
-      message: error.message || 'Internal server error',
-      data: null
+      message: error.message || "Internal server error",
+      data: null,
     });
   }
 };
@@ -278,8 +367,8 @@ export const resendOtp = async (req, res) => {
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found',
-        data: null
+        message: "User not found",
+        data: null,
       });
     }
 
@@ -289,23 +378,57 @@ export const resendOtp = async (req, res) => {
     user.otpTimestamp = new Date();
     await user.save();
 
-    console.log(`New OTP for ${phone}: ${otp}`);
-
-    return res.status(200).json({
-      success: true,
-      message: 'OTP resent successfully',
-      data: {
-        phone: user.phone,
-        otpSent: true,
-        otp: process.env.NODE_ENV === 'development' ? otp : undefined
+    // Send OTP via Twilio SMS
+    try {
+      // Ensure phone number has country code
+      let formattedPhone = phone;
+      if (!phone.startsWith("+")) {
+        // Add +91 for Indian numbers (change based on your country)
+        formattedPhone = `+91${phone}`;
       }
-    });
+
+      await sendOTP(formattedPhone, otp);
+      console.log(`✅ OTP resent to ${formattedPhone}: ${otp}`);
+
+      return res.status(200).json({
+        success: true,
+        message: "OTP resent successfully to your phone",
+        data: {
+          phone: user.phone,
+          otpSent: true,
+          otp: process.env.NODE_ENV === "development" ? otp : undefined,
+        },
+      });
+    } catch (smsError) {
+      console.error("⚠️ Failed to send SMS:", smsError.message);
+
+      // Still return success with OTP in development mode
+      if (process.env.NODE_ENV === "development") {
+        console.log(`⚠️ Development mode: OTP is ${otp}`);
+        return res.status(200).json({
+          success: true,
+          message: "OTP generated (SMS failed, check console)",
+          data: {
+            phone: user.phone,
+            otpSent: false,
+            otp: otp, // Only in development
+          },
+        });
+      }
+
+      // In production, return error
+      return res.status(500).json({
+        success: false,
+        message: "Failed to resend OTP. Please try again.",
+        data: null,
+      });
+    }
   } catch (error) {
-    console.error('Resend OTP error:', error);
+    console.error("Resend OTP error:", error);
     return res.status(500).json({
       success: false,
-      message: error.message || 'Internal server error',
-      data: null
+      message: error.message || "Internal server error",
+      data: null,
     });
   }
 };
@@ -314,14 +437,14 @@ export const resendOtp = async (req, res) => {
 export const logoutUser = async (req, res) => {
   try {
     const token = req.token;
-    const userId = req.admin.id;
+    const userId = req.user.id;
 
     const user = await User.findOne({ where: { id: userId, token } });
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found',
-        data: null
+        message: "User not found",
+        data: null,
       });
     }
 
@@ -331,15 +454,15 @@ export const logoutUser = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Logout successful',
-      data: 'Logged out successfully'
+      message: "Logout successful",
+      data: "Logged out successfully",
     });
   } catch (error) {
-    console.error('Logout error:', error);
+    console.error("Logout error:", error);
     return res.status(500).json({
       success: false,
-      message: error.message || 'Internal server error',
-      data: null
+      message: error.message || "Internal server error",
+      data: null,
     });
   }
 };
@@ -348,14 +471,14 @@ export const logoutUser = async (req, res) => {
 export const deleteUser = async (req, res) => {
   try {
     const token = req.token;
-    const userId = req.admin.id;
+    const userId = req.user.id;
 
     const user = await User.findOne({ where: { id: userId, token } });
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found',
-        data: null
+        message: "User not found",
+        data: null,
       });
     }
 
@@ -365,15 +488,15 @@ export const deleteUser = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'User deactivated successfully',
-      data: user
+      message: "User deactivated successfully",
+      data: user,
     });
   } catch (error) {
-    console.error('Delete user error:', error);
+    console.error("Delete user error:", error);
     return res.status(500).json({
       success: false,
-      message: error.message || 'Internal server error',
-      data: null
+      message: error.message || "Internal server error",
+      data: null,
     });
   }
 };
@@ -382,14 +505,14 @@ export const deleteUser = async (req, res) => {
 export const removeUser = async (req, res) => {
   try {
     const token = req.token;
-    const userId = req.admin.id;
+    const userId = req.user.id;
 
     const user = await User.findOne({ where: { id: userId, token } });
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found',
-        data: null
+        message: "User not found",
+        data: null,
       });
     }
 
@@ -397,15 +520,15 @@ export const removeUser = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'User removed successfully',
-      data: null
+      message: "User removed successfully",
+      data: null,
     });
   } catch (error) {
-    console.error('Remove user error:', error);
+    console.error("Remove user error:", error);
     return res.status(500).json({
       success: false,
-      message: error.message || 'Internal server error',
-      data: null
+      message: error.message || "Internal server error",
+      data: null,
     });
   }
 };
@@ -414,14 +537,14 @@ export const removeUser = async (req, res) => {
 export const getUser = async (req, res) => {
   try {
     const token = req.token;
-    const userId = req.admin.id;
+    const userId = req.user.id;
 
     const user = await User.findOne({ where: { id: userId, token } });
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found',
-        data: null
+        message: "User not found",
+        data: null,
       });
     }
 
@@ -431,15 +554,15 @@ export const getUser = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'User retrieved successfully',
-      data: userData
+      message: "User retrieved successfully",
+      data: userData,
     });
   } catch (error) {
-    console.error('Get user error:', error);
+    console.error("Get user error:", error);
     return res.status(500).json({
       success: false,
-      message: error.message || 'Internal server error',
-      data: null
+      message: error.message || "Internal server error",
+      data: null,
     });
   }
 };
@@ -457,11 +580,11 @@ export const getAllUsers = async (req, res) => {
       where: { gymOwnerId },
       limit,
       offset,
-      order: [['id', 'DESC']]
+      order: [["id", "DESC"]],
     });
 
     // Remove sensitive data
-    const users = rows.map(user => {
+    const users = rows.map((user) => {
       const userData = user.toJSON();
       delete userData.otp;
       delete userData.token;
@@ -470,21 +593,21 @@ export const getAllUsers = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'Users retrieved successfully',
+      message: "Users retrieved successfully",
       data: {
         content: users,
         totalElements: count,
         totalPages: Math.ceil(count / limit),
         currentPage: parseInt(page),
-        size: parseInt(size)
-      }
+        size: parseInt(size),
+      },
     });
   } catch (error) {
-    console.error('Get all users error:', error);
+    console.error("Get all users error:", error);
     return res.status(500).json({
       success: false,
-      message: error.message || 'Internal server error',
-      data: null
+      message: error.message || "Internal server error",
+      data: null,
     });
   }
 };
@@ -496,14 +619,14 @@ export const getUserById = async (req, res) => {
     const { id } = req.params;
 
     const user = await User.findOne({
-      where: { id, gymOwnerId }
+      where: { id, gymOwnerId },
     });
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found',
-        data: null
+        message: "User not found",
+        data: null,
       });
     }
 
@@ -513,15 +636,15 @@ export const getUserById = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'User retrieved successfully',
-      data: [userData]
+      message: "User retrieved successfully",
+      data: [userData],
     });
   } catch (error) {
-    console.error('Get user by ID error:', error);
+    console.error("Get user by ID error:", error);
     return res.status(500).json({
       success: false,
-      message: error.message || 'Internal server error',
-      data: null
+      message: error.message || "Internal server error",
+      data: null,
     });
   }
 };
@@ -544,18 +667,18 @@ export const updateUserById = async (req, res) => {
       height,
       weight,
       gender,
-      active
+      active,
     } = req.body;
 
     const user = await User.findOne({
-      where: { id, gymOwnerId }
+      where: { id, gymOwnerId },
     });
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found',
-        data: null
+        message: "User not found",
+        data: null,
       });
     }
 
@@ -564,7 +687,8 @@ export const updateUserById = async (req, res) => {
     if (lastName !== undefined) user.lastName = lastName;
     if (phone !== undefined) user.phone = phone;
     if (email !== undefined) user.email = email;
-    if (subscriptionType !== undefined) user.subscriptionType = subscriptionType;
+    if (subscriptionType !== undefined)
+      user.subscriptionType = subscriptionType;
     if (dateOfJoining !== undefined) user.dateOfJoining = dateOfJoining;
     if (dateOfBirth !== undefined) user.dateOfBirth = dateOfBirth;
     if (emergencyPhone !== undefined) user.emergencyPhone = emergencyPhone;
@@ -573,7 +697,25 @@ export const updateUserById = async (req, res) => {
     if (weight !== undefined) user.weight = weight;
     if (gender !== undefined) user.gender = gender;
     if (active !== undefined) user.active = active;
-    if (req.file) user.profileImage = req.file.filename;
+
+    // Handle profile image upload to S3
+    if (req.file) {
+      try {
+        const profileImageUrl = await uploadToS3(req.file);
+        if (profileImageUrl) {
+          user.profileImage = profileImageUrl;
+        } else {
+          console.warn(
+            "⚠️ Profile image upload returned null, keeping existing image"
+          );
+        }
+      } catch (error) {
+        console.error(
+          "⚠️ Profile image upload failed, keeping existing image:",
+          error.message
+        );
+      }
+    }
 
     await user.save();
 
@@ -583,15 +725,15 @@ export const updateUserById = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'User updated successfully',
-      data: userData
+      message: "User updated successfully",
+      data: userData,
     });
   } catch (error) {
-    console.error('Update user by ID error:', error);
+    console.error("Update user by ID error:", error);
     return res.status(500).json({
       success: false,
-      message: error.message || 'Internal server error',
-      data: null
+      message: error.message || "Internal server error",
+      data: null,
     });
   }
 };
@@ -603,14 +745,14 @@ export const removeUserById = async (req, res) => {
     const { id } = req.params;
 
     const user = await User.findOne({
-      where: { id, gymOwnerId }
+      where: { id, gymOwnerId },
     });
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User not found',
-        data: null
+        message: "User not found",
+        data: null,
       });
     }
 
@@ -618,15 +760,15 @@ export const removeUserById = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: 'User removed successfully',
-      data: null
+      message: "User removed successfully",
+      data: null,
     });
   } catch (error) {
-    console.error('Remove user by ID error:', error);
+    console.error("Remove user by ID error:", error);
     return res.status(500).json({
       success: false,
-      message: error.message || 'Internal server error',
-      data: null
+      message: error.message || "Internal server error",
+      data: null,
     });
   }
 };

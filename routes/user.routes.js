@@ -14,8 +14,8 @@ import {
   updateUserById,
   removeUserById
 } from '../controllers/user.controller.js';
-import { verifyGymOwnerToken, verifyToken } from '../middleware/auth.middleware.js';
-import { upload } from '../middleware/upload.middleware.js';
+import { verifyGymOwnerToken, verifyUserToken } from '../middleware/auth.middleware.js';
+import { upload } from '../config/multer.js';
 
 const router = express.Router();
 
@@ -25,17 +25,17 @@ router.post('/verify-otp', verifyOtp);
 router.post('/resend-otp', resendOtp);
 
 // Protected routes - User
-router.post('/register', verifyGymOwnerToken, upload.single('profileImage'), registerUser);
-router.put('/update', verifyToken, upload.single('profileImage'), updateUser);
-router.get('/logout', verifyToken, logoutUser);
-router.delete('/delete', verifyToken, deleteUser);
-router.delete('/remove', verifyToken, removeUser);
-router.get('/getUser', verifyToken, getUser);
+router.post('/register', verifyGymOwnerToken, upload.single('profile_image'), registerUser);
+router.put('/update', verifyUserToken, upload.single('profile_image'), updateUser);
+router.get('/logout', verifyUserToken, logoutUser);
+router.delete('/delete', verifyUserToken, deleteUser);
+router.delete('/remove', verifyUserToken, removeUser);
+router.get('/getUser', verifyUserToken, getUser);
 
 // Protected routes - Gym Owner (for managing users)
 router.get('/all-users', verifyGymOwnerToken, getAllUsers);
 router.get('/get-user-details/:id', verifyGymOwnerToken, getUserById);
-router.put('/update/:id', verifyGymOwnerToken, upload.single('profileImage'), updateUserById);
+router.put('/update/:id', verifyGymOwnerToken, upload.single('profile_image'), updateUserById);
 router.delete('/remove/:id', verifyGymOwnerToken, removeUserById);
 
 export default router;

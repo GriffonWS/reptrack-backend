@@ -24,7 +24,6 @@ export const uploadToS3 = async (file) => {
       Key: fileName,
       Body: file.buffer,
       ContentType: file.mimetype,
-      ACL: "public-read",
     };
 
     console.log("🚀 Uploading to S3 bucket:", process.env.AWS_S3_BUCKET_NAME);

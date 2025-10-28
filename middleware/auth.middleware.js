@@ -157,3 +157,59 @@ export const verifyGymOwnerToken = (req, res, next) => {
     });
   }
 };
+
+// Verify User Token
+export const verifyUserToken = (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        message: 'Missing or invalid Authorization header',
+        data: null
+      });
+    }
+
+    // Extract token (remove "Bearer " prefix)
+    const token = authHeader.substring(7);
+
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    // Check if the role is user
+    if (decoded.role !== 'user') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. User authentication required.',
+        data: null
+      });
+    }
+
+    // Attach decoded token data to request
+    req.user = decoded;
+    req.token = token;
+
+    next();
+  } catch (error) {
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid token',
+        data: null
+      });
+    }
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Token expired. Please login again.',
+        data: null
+      });
+    }
+    return res.status(500).json({
+      success: false,
+      message: 'Token verification failed',
+      data: null
+    });
+  }
+};
