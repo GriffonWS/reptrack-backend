@@ -46,7 +46,7 @@ app.use("/gym-owner", gymOwner);
 app.get("/health", (req, res) => {
   res.json({
     status: "OK",
-    message: "Gym Tracking API is running",
+    message: "Gym Tracking API 2 is running",
     timestamp: new Date().toISOString(),
   });
 });
