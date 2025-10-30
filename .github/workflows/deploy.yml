@@ -22,9 +22,26 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /home/ubuntu/reptrack-backend
+
+            # Stash any local changes (like .env modifications)
+            git stash
+
+            # Pull latest code
             git pull origin main
+
+            # Restore stashed .env if it exists
+            git stash pop || true
+
+            # Install dependencies
             npm install --production
+
+            # Restart PM2 process
             pm2 restart reptrack-backend
             pm2 save
-            echo "✅ Deployment completed!"
+
+            echo "✅ Backend deployment completed!"
+            echo "📊 Latest commit:"
+            git log -1 --oneline
+
+            echo "📊 PM2 status:"
             pm2 status reptrack-backend
