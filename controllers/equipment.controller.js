@@ -6,6 +6,7 @@ export const createEquipment = async (req, res) => {
   try {
     const gymOwnerId = req.gymOwner.id;
     const { equipment_name, category, equipment_number } = req.body;
+    console.log(req.body)
     const file = req.file;
 
     if (!equipment_name || !equipment_number) {
@@ -19,7 +20,7 @@ export const createEquipment = async (req, res) => {
     let imageUrl = null;
     if (file) {
       try {
-        imageUrl = await uploadToS3(file);
+        imageUrl = await uploadToS3(file, "equipment");
         if (!imageUrl) {
           console.warn(
             "⚠️ S3 upload returned null, proceeding with null image"
@@ -80,7 +81,7 @@ export const updateEquipment = async (req, res) => {
     // Try to upload new image to S3 (if file exists)
     if (file) {
       try {
-        const newImageUrl = await uploadToS3(file);
+        const newImageUrl = await uploadToS3(file, "equipment");
         if (newImageUrl) {
           imageUrl = newImageUrl;
         } else {
