@@ -5,9 +5,10 @@ import {
   updateEquipment,
   deleteEquipment,
   getEquipment,
-  getAllEquipment,
   getEquipmentByCategory,
   getEquipmentByNumber,
+  getAllEquipmentForGymOwner,
+  getAllEquipmentForUser,
 } from "../controllers/equipment.controller.js";
 import {
   verifyGymOwnerToken,
@@ -31,12 +32,16 @@ router.put(
 );
 router.delete("/delete/:id", verifyGymOwnerToken, deleteEquipment);
 router.get("/get/:id", verifyGymOwnerToken, getEquipment);
-router.get("/all", verifyUserToken, getAllEquipment);
+router.get("/all", verifyGymOwnerToken, getAllEquipmentForGymOwner); // Gym Owner route
 router.get("/category", verifyGymOwnerToken, getEquipmentByCategory);
 router.get(
   "/equipmentNumber/:equipment_number",
   verifyGymOwnerToken,
   getEquipmentByNumber
 );
+
+// Protected routes - User
+router.get("/user/all", verifyUserToken, getAllEquipmentForUser); // User route
+
 
 export default router;

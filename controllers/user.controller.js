@@ -244,6 +244,7 @@ export const loginUser = async (req, res) => {
 };
 
 // Verify OTP
+// Verify OTP
 export const verifyOtp = async (req, res) => {
   try {
     const { otp, phone } = req.body;
@@ -284,9 +285,14 @@ export const verifyOtp = async (req, res) => {
       });
     }
 
-    // Generate JWT token
+    // Generate JWT token - ✅ FIXED: Added gymOwnerId
     const token = jwt.sign(
-      { id: user.id, phone: user.phone, role: "user" },
+      { 
+        id: user.id, 
+        phone: user.phone, 
+        gymOwnerId: user.gymOwnerId, // ✅ Add this line!
+        role: "user" 
+      },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || "24h" }
     );

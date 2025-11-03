@@ -173,7 +173,10 @@ export const getEquipment = async (req, res) => {
   }
 };
 
-export const getAllEquipment = async (req, res) => {
+// Add these two new functions to equipment.controller.js
+
+// For Gym Owner - Get all their equipment
+export const getAllEquipmentForGymOwner = async (req, res) => {
   try {
     const gymOwnerId = req.gymOwner.id;
 
@@ -182,6 +185,35 @@ export const getAllEquipment = async (req, res) => {
     });
 
     res.json({ success: true, data: equipments });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching equipments",
+      error: error.message,
+    });
+  }
+};
+
+export const getAllEquipmentForUser = async (req, res) => {
+  try {
+    const gymOwnerId = req.user.gymOwnerId;
+
+    if (!gymOwnerId) {
+      return res.status(400).json({
+        success: false,
+        message: "User is not associated with any gym",
+      });
+    }
+
+    const equipments = await Equipment.findAll({
+      where: { gym_owner_id: gymOwnerId },
+    });
+
+    res.json({ 
+      success: true, 
+      message: `Found ${equipments.length} equipment(s)`,
+      data: equipments 
+    });
   } catch (error) {
     res.status(500).json({
       success: false,
