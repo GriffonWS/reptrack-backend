@@ -78,7 +78,7 @@ export const registerGymOwner = async (req, res) => {
     let profileImageUrl = null;
     if (req.files && req.files.profile_image) {
       try {
-        profileImageUrl = await uploadToS3(req.files.profile_image[0]);
+        profileImageUrl = await uploadToS3(req.files.profile_image[0], "gym-owners/profiles");
         if (!profileImageUrl) {
           console.warn("⚠️ Profile image upload returned null");
         }
@@ -91,7 +91,7 @@ export const registerGymOwner = async (req, res) => {
     let gymLogoUrl = null;
     if (req.files && req.files.gym_logo) {
       try {
-        gymLogoUrl = await uploadToS3(req.files.gym_logo[0]);
+        gymLogoUrl = await uploadToS3(req.files.gym_logo[0], "gym-owners/logos");
         if (!gymLogoUrl) {
           console.warn("⚠️ Gym logo upload returned null");
         }
@@ -348,7 +348,7 @@ export const updateGymOwner = async (req, res) => {
     // Handle profile image upload to S3
     if (req.files && req.files.profile_image) {
       try {
-        const profileImageUrl = await uploadToS3(req.files.profile_image[0]);
+        const profileImageUrl = await uploadToS3(req.files.profile_image[0], "gym-owners/profiles");
         if (profileImageUrl) {
           updatedData.profileImage = profileImageUrl;
         } else {
@@ -367,7 +367,7 @@ export const updateGymOwner = async (req, res) => {
     // Handle gym logo upload to S3
     if (req.files && req.files.gym_logo) {
       try {
-        const gymLogoUrl = await uploadToS3(req.files.gym_logo[0]);
+        const gymLogoUrl = await uploadToS3(req.files.gym_logo[0], "gym-owners/logos");
         if (gymLogoUrl) {
           updatedData.gymLogo = gymLogoUrl;
         } else {
@@ -447,7 +447,7 @@ export const updateGymOwnerById = async (req, res) => {
     // Handle profile image upload to S3
     if (req.files && req.files.profile_image) {
       try {
-        const profileImageUrl = await uploadToS3(req.files.profile_image[0]);
+        const profileImageUrl = await uploadToS3(req.files.profile_image[0], "gym-owners/profiles");
         if (profileImageUrl) {
           updatedData.profileImage = profileImageUrl;
         } else {
@@ -466,7 +466,7 @@ export const updateGymOwnerById = async (req, res) => {
     // Handle gym logo upload to S3
     if (req.files && req.files.gym_logo) {
       try {
-        const gymLogoUrl = await uploadToS3(req.files.gym_logo[0]);
+        const gymLogoUrl = await uploadToS3(req.files.gym_logo[0], "gym-owners/logos");
         if (gymLogoUrl) {
           updatedData.gymLogo = gymLogoUrl;
         } else {

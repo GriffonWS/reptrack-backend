@@ -11,6 +11,11 @@ const generateOTP = () => {
 // Register User (Gym Owner only)
 export const registerUser = async (req, res) => {
   try {
+    console.log("=== REGISTER USER START ===");
+    console.log("📋 Request body keys:", Object.keys(req.body));
+    console.log("📎 req.file exists:", !!req.file);
+    console.log("📎 req.files exists:", !!req.files);
+
     const gymOwnerId = req.gymOwner.id;
     const {
       firstName,
@@ -39,16 +44,43 @@ export const registerUser = async (req, res) => {
 
     // Handle profile image upload to S3
     let profileImageUrl = null;
+    console.log("📝 Register request - File received:", req.file ? "YES" : "NO");
+
     if (req.file) {
+      console.log("📁 File details:", {
+        fieldname: req.file.fieldname,
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        size: req.file.size,
+        buffer: req.file.buffer ? `EXISTS (${req.file.buffer.length} bytes)` : "MISSING"
+      });
+
+      console.log("🔧 AWS Config check:");
+      console.log("  - AWS_S3_BUCKET_NAME:", process.env.AWS_S3_BUCKET_NAME ? "SET" : "MISSING");
+      console.log("  - AWS_ACCESS_KEY_ID:", process.env.AWS_ACCESS_KEY_ID ? "SET" : "MISSING");
+      console.log("  - AWS_SECRET_ACCESS_KEY:", process.env.AWS_SECRET_ACCESS_KEY ? "SET" : "MISSING");
+      console.log("  - AWS_REGION:", process.env.AWS_REGION || "NOT SET");
+
       try {
-        profileImageUrl = await uploadToS3(req.file);
+        console.log("🚀 Starting S3 upload...");
+        profileImageUrl = await uploadToS3(req.file, "users/profiles");
+        console.log("📤 uploadToS3 returned:", profileImageUrl);
+
         if (!profileImageUrl) {
           console.warn("⚠️ Profile image upload returned null");
+        } else {
+          console.log("✅ Profile image uploaded successfully:", profileImageUrl);
         }
       } catch (error) {
-        console.error("⚠️ Profile image upload failed:", error.message);
+        console.error("❌ Profile image upload failed:", error.message);
+        console.error("Full error:", error);
+        console.error("Error stack:", error.stack);
       }
+    } else {
+      console.log("ℹ️ No profile image provided in request");
     }
+
+    console.log("💾 Creating user with profileImage:", profileImageUrl);
 
     // Create user
     const user = await User.create({
@@ -67,6 +99,9 @@ export const registerUser = async (req, res) => {
       deviceToken,
       firebaseToken,
     });
+
+    console.log("✅ User created with ID:", user.id);
+    console.log("📷 User profileImage value:", user.profileImage);
 
     // Remove sensitive data
     const userData = user.toJSON();
@@ -320,7 +355,7 @@ export const updateUser = async (req, res) => {
     // Handle profile image upload to S3
     if (req.file) {
       try {
-        const profileImageUrl = await uploadToS3(req.file);
+        const profileImageUrl = await uploadToS3(req.file, "users/profiles");
         if (profileImageUrl) {
           user.profileImage = profileImageUrl;
         } else {
@@ -701,7 +736,7 @@ export const updateUserById = async (req, res) => {
     // Handle profile image upload to S3
     if (req.file) {
       try {
-        const profileImageUrl = await uploadToS3(req.file);
+        const profileImageUrl = await uploadToS3(req.file, "users/profiles");
         if (profileImageUrl) {
           user.profileImage = profileImageUrl;
         } else {

@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-export const uploadToS3 = async (file) => {
+export const uploadToS3 = async (file, folder = "uploads") => {
   if (!file) return null; // No file uploaded, just return null
 
   try {
@@ -12,12 +12,13 @@ export const uploadToS3 = async (file) => {
       originalname: file.originalname,
       mimetype: file.mimetype,
       size: file.size,
+      folder: folder,
     });
 
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(7);
     const fileExtension = file.originalname.split(".").pop();
-    const fileName = `equipment/${timestamp}-${randomString}.${fileExtension}`;
+    const fileName = `${folder}/${timestamp}-${randomString}.${fileExtension}`;
 
     const params = {
       Bucket: process.env.AWS_S3_BUCKET_NAME,
@@ -33,6 +34,7 @@ export const uploadToS3 = async (file) => {
     return result.Location;
   } catch (error) {
     console.error("❌ S3 upload failed:", error.message);
+    console.error("Error details:", error);
     return null; // Return null instead of throwing error
   }
 };
