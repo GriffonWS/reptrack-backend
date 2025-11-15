@@ -181,7 +181,7 @@ export const getAllExerciseDetailsByUserId = async (req, res) => {
 
     const details = await ExerciseDetails.findAll({
       where: { user_id: userId },
-      order: [["exercise_date", "DESC"]],
+      order: [["id", "DESC"]],
     });
 
     res.status(200).json({
@@ -214,7 +214,7 @@ export const getExerciseDetailsByUserIdAndExerciseType = async (req, res) => {
 
     const details = await ExerciseDetails.findAll({
       where: { user_id: userId, exercise_type: exerciseType },
-      order: [["exercise_date", "DESC"]],
+      order: [["id", "DESC"]],
     });
 
     res.status(200).json({
@@ -256,7 +256,7 @@ export const getExerciseDetailsByLastDay = async (req, res) => {
         exercise_type: exerciseType,
         exercise_date: { [Op.gte]: lastDay },
       },
-      order: [["exercise_date", "DESC"]],
+      order: [["id", "DESC"]],
     });
 
     res.status(200).json({
@@ -293,7 +293,7 @@ export const getLastExerciseDetailsByEquipment = async (req, res) => {
 
     const details = await ExerciseDetails.findAll({
       where: { user_id: userId, equipment_number: equipmentNumber },
-      order: [["exercise_date", "DESC"]],
+      order: [["id", "DESC"]],
     });
 
     console.log("📊 Query Results:");
@@ -331,7 +331,7 @@ export const getLastExerciseDetailsByFreeWeightExercise = async (req, res) => {
 
     const details = await ExerciseDetails.findAll({
       where: { user_id: userId, free_weight_exercise: freeWeightExercise },
-      order: [["exercise_date", "DESC"]],
+      order: [["id", "DESC"]],
     });
 
     res.status(200).json({
@@ -364,7 +364,7 @@ export const getLastExerciseDetailsByOtherExercise = async (req, res) => {
 
     const details = await ExerciseDetails.findAll({
       where: { user_id: userId, other_exercise: otherExercise },
-      order: [["exercise_date", "DESC"]],
+      order: [["id", "DESC"]],
     });
 
     res.status(200).json({
