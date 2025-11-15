@@ -14,7 +14,7 @@ const ExerciseDetails = sequelize.define(
       allowNull: false,
     },
     equipment_number: {
-      type: DataTypes.STRING,
+      type: DataTypes.INTEGER,
       allowNull: true,
     },
     miles: {
