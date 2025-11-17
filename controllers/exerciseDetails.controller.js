@@ -1,30 +1,10 @@
 import ExerciseDetails from "../models/exerciseDetails.model.js";
-import User from "../models/user.model.js";
 import { Op } from "sequelize";
-// Helper to extract userId from Bearer token
-const extractUserIdFromToken = async (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    res
-      .status(401)
-      .json({ success: false, message: "Authorization header missing" });
-    return null;
-  }
-
-  const token = authHeader.substring(7);
-  const user = await User.findOne({ where: { token } });
-  if (!user) {
-    res.status(401).json({ success: false, message: "User not authorized" });
-    return null;
-  }
-  return user.id;
-};
 
 // ✅ Create Exercise Details
 export const createExerciseDetails = async (req, res) => {
   try {
-    const userId = await extractUserIdFromToken(req, res);
-    if (!userId) return;
+    const userId = req.user.id;
 
     const {
       equipmentNumber,
@@ -75,6 +55,7 @@ export const createExerciseDetails = async (req, res) => {
 // ✅ Update Exercise Details
 export const updateExerciseDetails = async (req, res) => {
   try {
+    const userId = req.user.id;
     const { id } = req.params;
     const { equipmentNumber, miles, speed, reps, sets, weight } = req.body;
 
@@ -83,6 +64,15 @@ export const updateExerciseDetails = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Exercise detail not found",
+      });
+    }
+
+    // Verify the exercise belongs to the authenticated user
+    if (detail.user_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Access denied. You can only update your own exercise details.",
       });
     }
 
@@ -112,15 +102,27 @@ export const updateExerciseDetails = async (req, res) => {
 // ✅ Delete Exercise Details
 export const deleteExerciseDetails = async (req, res) => {
   try {
+    const userId = req.user.id;
     const { id } = req.params;
-    const deleted = await ExerciseDetails.destroy({ where: { id } });
 
-    if (!deleted) {
+    const detail = await ExerciseDetails.findByPk(id);
+    if (!detail) {
       return res.status(404).json({
         success: false,
         message: "Exercise detail not found",
       });
     }
+
+    // Verify the exercise belongs to the authenticated user
+    if (detail.user_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Access denied. You can only delete your own exercise details.",
+      });
+    }
+
+    await detail.destroy();
 
     res.status(200).json({
       success: true,
@@ -138,13 +140,23 @@ export const deleteExerciseDetails = async (req, res) => {
 // ✅ Get Exercise Details by ID
 export const getExerciseDetails = async (req, res) => {
   try {
+    const userId = req.user.id;
     const { id } = req.params;
+
     const data = await ExerciseDetails.findByPk(id);
 
     if (!data) {
       return res.status(404).json({
         success: false,
         message: "Exercise detail not found",
+      });
+    }
+
+    // Verify the exercise belongs to the authenticated user
+    if (data.user_id !== userId) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. You can only view your own exercise details.",
       });
     }
 
@@ -165,11 +177,11 @@ export const getExerciseDetails = async (req, res) => {
 // ✅ Get All Exercise Details by User ID
 export const getAllExerciseDetailsByUserId = async (req, res) => {
   try {
-    const userId = await extractUserIdFromToken(req, res);
-    if (!userId) return;
+    const userId = req.user.id;
 
     const details = await ExerciseDetails.findAll({
       where: { user_id: userId },
+      order: [["id", "DESC"]],
     });
 
     res.status(200).json({
@@ -189,8 +201,7 @@ export const getAllExerciseDetailsByUserId = async (req, res) => {
 // ✅ Get Exercise Details by User ID and Exercise Type
 export const getExerciseDetailsByUserIdAndExerciseType = async (req, res) => {
   try {
-    const userId = await extractUserIdFromToken(req, res);
-    if (!userId) return;
+    const userId = req.user.id;
 
     const { exerciseType } = req.query;
 
@@ -203,6 +214,7 @@ export const getExerciseDetailsByUserIdAndExerciseType = async (req, res) => {
 
     const details = await ExerciseDetails.findAll({
       where: { user_id: userId, exercise_type: exerciseType },
+      order: [["id", "DESC"]],
     });
 
     res.status(200).json({
@@ -222,8 +234,7 @@ export const getExerciseDetailsByUserIdAndExerciseType = async (req, res) => {
 // ✅ Get Exercise Details from Last Day by Exercise Type
 export const getExerciseDetailsByLastDay = async (req, res) => {
   try {
-    const userId = await extractUserIdFromToken(req, res);
-    if (!userId) return;
+    const userId = req.user.id;
 
     const { exerciseType } = req.query;
     if (!exerciseType) {
@@ -245,6 +256,7 @@ export const getExerciseDetailsByLastDay = async (req, res) => {
         exercise_type: exerciseType,
         exercise_date: { [Op.gte]: lastDay },
       },
+      order: [["id", "DESC"]],
     });
 
     res.status(200).json({
@@ -264,10 +276,13 @@ export const getExerciseDetailsByLastDay = async (req, res) => {
 // ✅ Get Exercise Details by Equipment
 export const getLastExerciseDetailsByEquipment = async (req, res) => {
   try {
-    const userId = await extractUserIdFromToken(req, res);
-    if (!userId) return;
-
+    const userId = req.user.id;
     const { equipmentNumber } = req.query;
+
+    console.log("🔍 Debug Info:");
+    console.log("   User ID from token:", userId);
+    console.log("   Equipment Number:", equipmentNumber);
+    console.log("   User object:", req.user);
 
     if (!equipmentNumber) {
       return res.status(400).json({
@@ -278,8 +293,12 @@ export const getLastExerciseDetailsByEquipment = async (req, res) => {
 
     const details = await ExerciseDetails.findAll({
       where: { user_id: userId, equipment_number: equipmentNumber },
-      order: [["exercise_date", "DESC"]], // ✅ fixed
+      order: [["id", "DESC"]],
     });
+
+    console.log("📊 Query Results:");
+    console.log("   Records found:", details.length);
+    console.log("   Data:", JSON.stringify(details, null, 2));
 
     res.status(200).json({
       success: true,
@@ -287,6 +306,7 @@ export const getLastExerciseDetailsByEquipment = async (req, res) => {
       data: details,
     });
   } catch (error) {
+    console.error("❌ Error:", error);
     res.status(500).json({
       success: false,
       message: "Failed to fetch exercise details",
@@ -298,8 +318,7 @@ export const getLastExerciseDetailsByEquipment = async (req, res) => {
 // ✅ Get Exercise Details by Free Weight Exercise
 export const getLastExerciseDetailsByFreeWeightExercise = async (req, res) => {
   try {
-    const userId = await extractUserIdFromToken(req, res);
-    if (!userId) return;
+    const userId = req.user.id;
 
     const { freeWeightExercise } = req.query;
 
@@ -312,7 +331,7 @@ export const getLastExerciseDetailsByFreeWeightExercise = async (req, res) => {
 
     const details = await ExerciseDetails.findAll({
       where: { user_id: userId, free_weight_exercise: freeWeightExercise },
-      order: [["exercise_date", "DESC"]], // ✅ fixed
+      order: [["id", "DESC"]],
     });
 
     res.status(200).json({
@@ -332,8 +351,7 @@ export const getLastExerciseDetailsByFreeWeightExercise = async (req, res) => {
 // ✅ Get Exercise Details by Other Exercise
 export const getLastExerciseDetailsByOtherExercise = async (req, res) => {
   try {
-    const userId = await extractUserIdFromToken(req, res);
-    if (!userId) return;
+    const userId = req.user.id;
 
     const { otherExercise } = req.query;
 
@@ -346,7 +364,7 @@ export const getLastExerciseDetailsByOtherExercise = async (req, res) => {
 
     const details = await ExerciseDetails.findAll({
       where: { user_id: userId, other_exercise: otherExercise },
-      order: [["exercise_date", "DESC"]], // ✅ fixed
+      order: [["id", "DESC"]],
     });
 
     res.status(200).json({

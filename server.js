@@ -46,7 +46,7 @@ app.use("/gym-owner", gymOwner);
 app.get("/health", (req, res) => {
   res.json({
     status: "OK",
-    message: "Gym Tracking API 2 is running",
+    message: "Gym Tracking API 3 is running",
     timestamp: new Date().toISOString(),
   });
 });
@@ -80,7 +80,7 @@ const startServer = async () => {
     console.log("✅ Database synchronized successfully");
 
     app.listen(PORT, () => {
-      console.log(`🚀 Server is running on port ${PORT}`);
+      console.log(`🚀 Server  is running on port ${PORT}`);
       console.log(`📦 Environment: ${process.env.NODE_ENV || "development"}`);
     });
   } catch (error) {
