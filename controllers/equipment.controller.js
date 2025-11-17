@@ -16,6 +16,21 @@ export const createEquipment = async (req, res) => {
       });
     }
 
+    // Check if equipment number already exists for this gym owner
+    const existingEquipment = await Equipment.findOne({
+      where: {
+        equipment_number,
+        gym_owner_id: gymOwnerId
+      }
+    });
+
+    if (existingEquipment) {
+      return res.status(400).json({
+        success: false,
+        message: `Equipment number "${equipment_number}" already exists. Please use a unique number.`,
+      });
+    }
+
     // Try to upload image to S3 (if file exists)
     let imageUrl = null;
     if (file) {
@@ -73,6 +88,24 @@ export const updateEquipment = async (req, res) => {
       return res
         .status(404)
         .json({ success: false, message: "Equipment not found" });
+    }
+
+    // Check if equipment number is being changed to a number that already exists
+    if (equipment_number !== equipment.equipment_number) {
+      const existingEquipment = await Equipment.findOne({
+        where: {
+          equipment_number,
+          gym_owner_id: gymOwnerId,
+          id: { [Op.ne]: id } // Exclude the current equipment
+        }
+      });
+
+      if (existingEquipment) {
+        return res.status(400).json({
+          success: false,
+          message: `Equipment number "${equipment_number}" already exists. Please use a unique number.`,
+        });
+      }
     }
 
     // Keep existing image if no new file uploaded
