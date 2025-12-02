@@ -120,6 +120,21 @@ const User = sequelize.define('User', {
     allowNull: true,
     field: 'token'
   },
+  password: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    field: 'password'
+  },
+  passwordResetToken: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    field: 'password_reset_token'
+  },
+  passwordResetExpires: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    field: 'password_reset_expires'
+  },
   isProfileUpdated: {
     type: DataTypes.BOOLEAN,
     allowNull: false,

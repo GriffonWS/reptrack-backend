@@ -12,7 +12,12 @@ import {
   getAllUsers,
   getUserById,
   updateUserById,
-  removeUserById
+  removeUserById,
+  loginUserWithPassword,
+  setPassword,
+  forgotPassword,
+  resetPassword,
+  changePassword
 } from '../controllers/user.controller.js';
 import { verifyGymOwnerToken, verifyUserToken } from '../middleware/auth.middleware.js';
 import { upload } from '../config/multer.js';
@@ -23,6 +28,13 @@ const router = express.Router();
 router.post('/login', loginUser);
 router.post('/verify-otp', verifyOtp);
 router.post('/resend-otp', resendOtp);
+
+// Password-based login routes (NEW)
+router.post('/login-password', loginUserWithPassword);
+router.post('/set-password', setPassword);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
+router.post('/change-password', verifyUserToken, changePassword);
 
 // Protected routes - User
 router.post('/register', verifyGymOwnerToken, upload.single('profile_image'), registerUser);

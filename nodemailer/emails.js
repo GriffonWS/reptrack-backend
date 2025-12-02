@@ -1,24 +1,19 @@
 import transporter from "./config.js";
-import {
-  
-  verificationEmailTemplate,
-  
-} from "./email-templates.js";
+import { invitationEmailTemplate } from "./email-templates.js";
 
-
-export const sendVerificationEmail = async (email, verificationToken, name) => {
+export const sendInvitationEmail = async (email, userName, uniqueId, setupLink, tokenExpiry) => {
   try {
     const mailOptions = {
-      from: `"Authentication" <${process.env.EMAIL_USER}>`,
+      from: `"RepTrack" <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: "Verify Your Email Address Now",
-      html: verificationEmailTemplate(verificationToken, name),
+      subject: "You're Invited to Join RepTrack!",
+      html: invitationEmailTemplate(userName, uniqueId, setupLink, tokenExpiry),
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log("✅ Verification email sent:", info.messageId);
+    console.log("✅ Invitation email sent:", info.messageId);
   } catch (error) {
-    console.error("❌ Error sending verification email", error);
-    throw new Error("Error sending verification email");
+    console.error("❌ Error sending invitation email", error);
+    throw new Error("Error sending invitation email");
   }
 };

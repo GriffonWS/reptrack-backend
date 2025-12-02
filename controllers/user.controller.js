@@ -1,11 +1,20 @@
 import jwt from "jsonwebtoken";
+import bcryptjs from "bcryptjs";
+import crypto from "crypto";
 import User from "../models/user.model.js";
 import { uploadToS3 } from "../utils/uploadToS3.js";
 import { sendOTP } from "../config/twilio.js";
+import { sendInvitationEmail } from "../nodemailer/emails.js";
+import transporter from "../nodemailer/config.js";
 
 // Helper function to generate OTP
 const generateOTP = () => {
   return Math.floor(1000 + Math.random() * 9000).toString();
+};
+
+// Helper function to generate password reset token
+const generatePasswordResetToken = () => {
+  return crypto.randomBytes(32).toString("hex");
 };
 
 // Register User (Gym Owner only)
@@ -103,10 +112,40 @@ export const registerUser = async (req, res) => {
     console.log("✅ User created with ID:", user.id);
     console.log("📷 User profileImage value:", user.profileImage);
 
+    // Generate password reset token for secure password setup
+    const passwordResetToken = generatePasswordResetToken();
+    const tokenExpiry = 24; // 24 hours
+    const expiresAt = new Date(Date.now() + tokenExpiry * 60 * 60 * 1000);
+
+    // Store token in database
+    await user.update({
+      passwordResetToken,
+      passwordResetExpires: expiresAt,
+    });
+
+    // Send invitation email with setup link
+    try {
+      const appBaseUrl = process.env.APP_BASE_URL || "reptrack://";
+      const webBaseUrl = process.env.WEB_BASE_URL || "https://reptrack.app";
+
+      // Deep link for app: reptrack://set-password?token=xxx&uniqueId=xxx
+      // Web link fallback: https://reptrack.app/set-password?token=xxx&uniqueId=xxx
+      const setupLink = `${appBaseUrl}set-password?token=${passwordResetToken}&uniqueId=${user.uniqueId}`;
+
+      const userName = `${firstName} ${lastName}`;
+      await sendInvitationEmail(email, userName, user.uniqueId, setupLink, tokenExpiry);
+      console.log("✅ Invitation email sent to:", email);
+    } catch (emailError) {
+      console.error("⚠️ Failed to send invitation email:", emailError.message);
+      // Don't fail the registration if email fails, just log it
+    }
+
     // Remove sensitive data
     const userData = user.toJSON();
     delete userData.otp;
     delete userData.token;
+    delete userData.passwordResetToken;
+    delete userData.passwordResetExpires;
 
     return res.status(200).json({
       success: true,
@@ -806,6 +845,433 @@ export const removeUserById = async (req, res) => {
     });
   } catch (error) {
     console.error("Remove user by ID error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+      data: null,
+    });
+  }
+};
+
+// Password-based Login (NEW)
+export const loginUserWithPassword = async (req, res) => {
+  try {
+    const { uniqueId, email, password, deviceToken } = req.body;
+
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: "Password is required",
+        data: null,
+      });
+    }
+
+    if (!uniqueId && !email) {
+      return res.status(400).json({
+        success: false,
+        message: "Unique ID or email is required",
+        data: null,
+      });
+    }
+
+    // Find user by unique ID or email
+    let user;
+    if (uniqueId) {
+      user = await User.findOne({ where: { uniqueId } });
+    } else if (email) {
+      user = await User.findOne({ where: { email } });
+    }
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials",
+        data: null,
+      });
+    }
+
+    // Check if password exists
+    if (!user.password) {
+      return res.status(401).json({
+        success: false,
+        message: "Password not set. Please set your password first.",
+        data: null,
+      });
+    }
+
+    // Compare password
+    const isPasswordValid = await bcryptjs.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid unique ID or password",
+        data: null,
+      });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: user.id, phone: user.phone, gymOwnerId: user.gymOwnerId, role: "user" },
+      process.env.JWT_SECRET || "mysecretkey",
+      { expiresIn: process.env.JWT_EXPIRES_IN || "24h" }
+    );
+
+    // Update user token and device token
+    await user.update({
+      token,
+      status: true,
+      deviceToken: deviceToken || user.deviceToken,
+    });
+
+    // Return user data without sensitive fields
+    const userData = user.toJSON();
+    delete userData.password;
+    delete userData.otp;
+    delete userData.otpTimestamp;
+    delete userData.passwordResetToken;
+    delete userData.passwordResetExpires;
+    userData.token = token;
+
+    return res.status(200).json({
+      success: true,
+      message: "Login successful",
+      data: userData,
+    });
+  } catch (error) {
+    console.error("Login user with password error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+      data: null,
+    });
+  }
+};
+
+// Set Password (First Time Login with Token Verification)
+export const setPassword = async (req, res) => {
+  try {
+    const { uniqueId, email, token, password, confirmPassword } = req.body;
+
+    if (!token || !password || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Token, password, and confirm password are required",
+        data: null,
+      });
+    }
+
+    if (!uniqueId && !email) {
+      return res.status(400).json({
+        success: false,
+        message: "Unique ID or email is required",
+        data: null,
+      });
+    }
+
+    if (password !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Passwords do not match",
+        data: null,
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters long",
+        data: null,
+      });
+    }
+
+    // Find user by unique ID or email
+    let user;
+    if (uniqueId) {
+      user = await User.findOne({ where: { uniqueId } });
+    } else if (email) {
+      user = await User.findOne({ where: { email } });
+    }
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+        data: null,
+      });
+    }
+
+    // Verify password reset token
+    if (!user.passwordResetToken || user.passwordResetToken !== token) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid or expired password setup token",
+        data: null,
+      });
+    }
+
+    // Check if token has expired
+    if (user.passwordResetExpires < new Date()) {
+      return res.status(401).json({
+        success: false,
+        message: "Password setup token has expired. Please request a new invitation.",
+        data: null,
+      });
+    }
+
+    // Hash password
+    const hashedPassword = await bcryptjs.hash(password, 10);
+
+    // Update user password and clear token
+    await user.update({
+      password: hashedPassword,
+      passwordResetToken: null,
+      passwordResetExpires: null,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Password set successfully. You can now log in.",
+      data: null,
+    });
+  } catch (error) {
+    console.error("Set password error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+      data: null,
+    });
+  }
+};
+
+// Forgot Password - Send Reset Link
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+        data: null,
+      });
+    }
+
+    const user = await User.findOne({ where: { email } });
+
+    if (!user) {
+      // Don't reveal if email exists for security
+      return res.status(200).json({
+        success: true,
+        message: "If an account exists with this email, a password reset link has been sent",
+        data: null,
+      });
+    }
+
+    // Generate password reset token
+    const passwordResetToken = generatePasswordResetToken();
+    const tokenExpiry = 1; // 1 hour
+    const expiresAt = new Date(Date.now() + tokenExpiry * 60 * 60 * 1000);
+
+    await user.update({
+      passwordResetToken,
+      passwordResetExpires: expiresAt,
+    });
+
+    // Send reset link email
+    try {
+      const resetLink = `${process.env.APP_BASE_URL || "reptrack://"}reset-password?token=${passwordResetToken}&email=${encodeURIComponent(user.email)}`;
+      const mailOptions = {
+        from: `"RepTrack" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: "Reset Your RepTrack Password",
+        html: `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; background-color: #f2f2f2; margin: 0; padding: 0; }
+              .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }
+              .button { display: inline-block; background-color: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 20px 0; }
+              .expiry-warning { background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 10px; margin: 15px 0; border-radius: 4px; font-size: 14px; color: #856404; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <h2>Reset Your Password</h2>
+              <p>Click the button below to reset your RepTrack password:</p>
+              <center><a href="${resetLink}" class="button">Reset Password</a></center>
+              <p>Or copy this link: <span style="word-break: break-all; color: #007bff;">${resetLink}</span></p>
+              <div class="expiry-warning">
+                <strong>⏰ This link expires in 1 hour.</strong>
+              </div>
+              <p>If you didn't request this, ignore this email. Your account is secure.</p>
+            </div>
+          </body>
+          </html>
+        `,
+      };
+      await transporter.sendMail(mailOptions);
+      console.log("✅ Password reset email sent to:", email);
+    } catch (emailError) {
+      console.error("⚠️ Failed to send reset email:", emailError.message);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "If an account exists with this email, a password reset link has been sent",
+      data: null,
+    });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+      data: null,
+    });
+  }
+};
+
+// Reset Password - Using Token from Email
+export const resetPassword = async (req, res) => {
+  try {
+    const { email, token, password, confirmPassword } = req.body;
+
+    if (!email || !token || !password || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Email, token, password, and confirm password are required",
+        data: null,
+      });
+    }
+
+    if (password !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Passwords do not match",
+        data: null,
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters long",
+        data: null,
+      });
+    }
+
+    const user = await User.findOne({ where: { email } });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+        data: null,
+      });
+    }
+
+    // Verify token
+    if (!user.passwordResetToken || user.passwordResetToken !== token) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid or expired password reset token",
+        data: null,
+      });
+    }
+
+    // Check expiry
+    if (user.passwordResetExpires < new Date()) {
+      return res.status(401).json({
+        success: false,
+        message: "Password reset token has expired. Please request a new one.",
+        data: null,
+      });
+    }
+
+    // Hash and update password
+    const hashedPassword = await bcryptjs.hash(password, 10);
+    await user.update({
+      password: hashedPassword,
+      passwordResetToken: null,
+      passwordResetExpires: null,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Password reset successfully. You can now log in with your new password.",
+      data: null,
+    });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+      data: null,
+    });
+  }
+};
+
+// Change Password - Authenticated User
+export const changePassword = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { oldPassword, newPassword, confirmPassword } = req.body;
+
+    if (!oldPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Old password, new password, and confirm password are required",
+        data: null,
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "New passwords do not match",
+        data: null,
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters long",
+        data: null,
+      });
+    }
+
+    const user = await User.findByPk(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+        data: null,
+      });
+    }
+
+    // Verify old password
+    const isOldPasswordValid = await bcryptjs.compare(oldPassword, user.password);
+    if (!isOldPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: "Old password is incorrect",
+        data: null,
+      });
+    }
+
+    // Hash and update new password
+    const hashedPassword = await bcryptjs.hash(newPassword, 10);
+    await user.update({ password: hashedPassword });
+
+    return res.status(200).json({
+      success: true,
+      message: "Password changed successfully",
+      data: null,
+    });
+  } catch (error) {
+    console.error("Change password error:", error);
     return res.status(500).json({
       success: false,
       message: error.message || "Internal server error",
