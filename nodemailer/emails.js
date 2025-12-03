@@ -1,5 +1,5 @@
 import transporter from "./config.js";
-import { invitationEmailTemplate, welcomeEmailTemplate } from "./email-templates.js";
+import { invitationEmailTemplate, welcomeEmailTemplate, forgotPasswordEmailTemplate } from "./email-templates.js";
 
 export const sendInvitationEmail = async (email, userName, uniqueId, setupLink, tokenExpiry) => {
   try {
@@ -32,5 +32,22 @@ export const sendWelcomeEmail = async (email, userName, userEmail, password, and
   } catch (error) {
     console.error("❌ Error sending welcome email", error);
     throw new Error("Error sending welcome email");
+  }
+};
+
+export const sendForgotPasswordEmail = async (email, userName, tempPassword) => {
+  try {
+    const mailOptions = {
+      from: `"RepTrack" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: "RepTrack - Password Reset",
+      html: forgotPasswordEmailTemplate(userName, email, tempPassword),
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log("✅ Forgot password email sent:", info.messageId);
+  } catch (error) {
+    console.error("❌ Error sending forgot password email", error);
+    throw new Error("Error sending forgot password email");
   }
 };

@@ -4,7 +4,7 @@ import crypto from "crypto";
 import User from "../models/user.model.js";
 import { uploadToS3 } from "../utils/uploadToS3.js";
 import { sendOTP } from "../config/twilio.js";
-import { sendInvitationEmail, sendWelcomeEmail } from "../nodemailer/emails.js";
+import { sendInvitationEmail, sendWelcomeEmail, sendForgotPasswordEmail } from "../nodemailer/emails.js";
 import transporter from "../nodemailer/config.js";
 
 // Helper function to generate OTP
@@ -1053,7 +1053,7 @@ export const setPassword = async (req, res) => {
   }
 };
 
-// Forgot Password - Send Reset Link
+// Forgot Password - Send Temporary Password
 export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -1072,63 +1072,53 @@ export const forgotPassword = async (req, res) => {
       // Don't reveal if email exists for security
       return res.status(200).json({
         success: true,
-        message: "If an account exists with this email, a password reset link has been sent",
+        message: "If an account exists with this email, a temporary password has been sent",
         data: null,
       });
     }
 
-    // Generate password reset token
-    const passwordResetToken = generatePasswordResetToken();
-    const tokenExpiry = 1; // 1 hour
-    const expiresAt = new Date(Date.now() + tokenExpiry * 60 * 60 * 1000);
+    // Generate temporary password (3 characters + @ + 3 numbers)
+    const generateTempPassword = () => {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+      const numbers = '0123456789';
 
+      let password = '';
+      for (let i = 0; i < 3; i++) {
+        password += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      password += '@';
+      for (let i = 0; i < 3; i++) {
+        password += numbers.charAt(Math.floor(Math.random() * numbers.length));
+      }
+      return password;
+    };
+
+    const tempPassword = generateTempPassword();
+    console.log("🔐 Generated temporary password for forgot password");
+
+    // Hash the temporary password
+    const hashedPassword = await bcryptjs.hash(tempPassword, 10);
+
+    // Update user with new password and set isNewUser to true
     await user.update({
-      passwordResetToken,
-      passwordResetExpires: expiresAt,
+      password: hashedPassword,
+      isNewUser: true,
+      passwordResetToken: null,
+      passwordResetExpires: null,
     });
 
-    // Send reset link email
+    // Send temporary password email
     try {
-      const resetLink = `${process.env.APP_BASE_URL || "reptrack://"}reset-password?token=${passwordResetToken}&email=${encodeURIComponent(user.email)}`;
-      const mailOptions = {
-        from: `"RepTrack" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: "Reset Your RepTrack Password",
-        html: `
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <style>
-              body { font-family: Arial, sans-serif; background-color: #f2f2f2; margin: 0; padding: 0; }
-              .container { max-width: 600px; margin: 0 auto; padding: 20px; background-color: #ffffff; border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); }
-              .button { display: inline-block; background-color: #007bff; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin: 20px 0; }
-              .expiry-warning { background-color: #fff3cd; border-left: 4px solid #ffc107; padding: 10px; margin: 15px 0; border-radius: 4px; font-size: 14px; color: #856404; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <h2>Reset Your Password</h2>
-              <p>Click the button below to reset your RepTrack password:</p>
-              <center><a href="${resetLink}" class="button">Reset Password</a></center>
-              <p>Or copy this link: <span style="word-break: break-all; color: #007bff;">${resetLink}</span></p>
-              <div class="expiry-warning">
-                <strong>⏰ This link expires in 1 hour.</strong>
-              </div>
-              <p>If you didn't request this, ignore this email. Your account is secure.</p>
-            </div>
-          </body>
-          </html>
-        `,
-      };
-      await transporter.sendMail(mailOptions);
-      console.log("✅ Password reset email sent to:", email);
+      const userName = `${user.firstName} ${user.lastName}`;
+      await sendForgotPasswordEmail(email, userName, tempPassword);
+      console.log("✅ Temporary password email sent to:", email);
     } catch (emailError) {
-      console.error("⚠️ Failed to send reset email:", emailError.message);
+      console.error("⚠️ Failed to send temporary password email:", emailError.message);
     }
 
     return res.status(200).json({
       success: true,
-      message: "If an account exists with this email, a password reset link has been sent",
+      message: "If an account exists with this email, a temporary password has been sent",
       data: null,
     });
   } catch (error) {

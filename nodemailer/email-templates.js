@@ -191,3 +191,82 @@ export const welcomeEmailTemplate = (
 </html>
   `;
 };
+
+export const forgotPasswordEmailTemplate = (userName, email, tempPassword) => {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .details {
+            font-size: 16px;
+            line-height: 1.6;
+            color: #333;
+        }
+        .credential-box {
+            background-color: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .email-text {
+            font-weight: bold;
+            color: #007bff;
+            font-size: 16px;
+        }
+        .password-text {
+            font-weight: bold;
+            color: #dc3545;
+            font-size: 18px;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 10px;
+            margin: 15px 0;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Password Reset Request</h2>
+        <p class="details">Hi <strong>${userName}</strong>,</p>
+        <p class="details">You requested to reset your password. Here is your temporary password:</p>
+
+        <div class="credential-box">
+            <p class="details">Email: <span class="email-text">${email}</span></p>
+            <p class="details">Temporary Password: <span class="password-text">${tempPassword}</span></p>
+        </div>
+
+        <div class="warning">
+            <strong>🔒 Important:</strong> Please change your password immediately after logging in for security purposes.
+        </div>
+
+        <p class="details">If you didn't request this password reset, please contact your gym administrator immediately.</p>
+
+        <p class="details" style="margin-top: 30px; font-size: 14px; color: #666;">
+            <strong>Note:</strong> This is an automated email. Please do not reply to this message.
+        </p>
+    </div>
+</body>
+</html>
+  `;
+};
