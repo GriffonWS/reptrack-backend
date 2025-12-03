@@ -9,6 +9,7 @@ import {
   getEquipmentByNumber,
   getAllEquipmentForGymOwner,
   getAllEquipmentForUser,
+  getEquipmentByCategoryForUser,
 } from "../controllers/equipment.controller.js";
 import {
   verifyGymOwnerToken,
@@ -42,6 +43,6 @@ router.get(
 
 // Protected routes - User
 router.get("/user/all", verifyUserToken, getAllEquipmentForUser); // User route
-
+router.get("/user/category", verifyUserToken, getEquipmentByCategoryForUser); // User route - Get by category
 
 export default router;

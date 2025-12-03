@@ -6,7 +6,7 @@ export const createEquipment = async (req, res) => {
   try {
     const gymOwnerId = req.gymOwner.id;
     const { equipment_name, category, equipment_number } = req.body;
-    console.log(req.body)
+    console.log(req.body);
     const file = req.file;
 
     if (!equipment_name || !equipment_number) {
@@ -20,8 +20,8 @@ export const createEquipment = async (req, res) => {
     const existingEquipment = await Equipment.findOne({
       where: {
         equipment_number,
-        gym_owner_id: gymOwnerId
-      }
+        gym_owner_id: gymOwnerId,
+      },
     });
 
     if (existingEquipment) {
@@ -81,7 +81,7 @@ export const updateEquipment = async (req, res) => {
     const file = req.file;
 
     const equipment = await Equipment.findOne({
-      where: { id, gym_owner_id: gymOwnerId }
+      where: { id, gym_owner_id: gymOwnerId },
     });
 
     if (!equipment) {
@@ -96,8 +96,8 @@ export const updateEquipment = async (req, res) => {
         where: {
           equipment_number,
           gym_owner_id: gymOwnerId,
-          id: { [Op.ne]: id } // Exclude the current equipment
-        }
+          id: { [Op.ne]: id }, // Exclude the current equipment
+        },
       });
 
       if (existingEquipment) {
@@ -158,7 +158,7 @@ export const deleteEquipment = async (req, res) => {
     const { id } = req.params;
 
     const equipment = await Equipment.findOne({
-      where: { id, gym_owner_id: gymOwnerId }
+      where: { id, gym_owner_id: gymOwnerId },
     });
 
     if (!equipment) {
@@ -188,7 +188,7 @@ export const getEquipment = async (req, res) => {
     const { id } = req.params;
 
     const equipment = await Equipment.findOne({
-      where: { id, gym_owner_id: gymOwnerId }
+      where: { id, gym_owner_id: gymOwnerId },
     });
 
     if (!equipment) {
@@ -242,10 +242,10 @@ export const getAllEquipmentForUser = async (req, res) => {
       where: { gym_owner_id: gymOwnerId },
     });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: `Found ${equipments.length} equipment(s)`,
-      data: equipments 
+      data: equipments,
     });
   } catch (error) {
     res.status(500).json({
@@ -261,14 +261,14 @@ export const getEquipmentByCategory = async (req, res) => {
     const gymOwnerId = req.gymOwner.id;
     const { category } = req.query;
 
-    console.log('🔍 Searching for category:', category);
-    console.log('🔍 Gym Owner ID:', gymOwnerId);
+    console.log("🔍 Searching for category:", category);
+    console.log("🔍 Gym Owner ID:", gymOwnerId);
 
     if (!category) {
       return res.status(400).json({
         success: false,
         message: "Category parameter is required",
-        data: null
+        data: null,
       });
     }
 
@@ -276,21 +276,21 @@ export const getEquipmentByCategory = async (req, res) => {
     const equipments = await Equipment.findAll({
       where: {
         category: {
-          [Op.like]: category // Case-insensitive match
+          [Op.like]: category, // Case-insensitive match
         },
-        gym_owner_id: gymOwnerId
+        gym_owner_id: gymOwnerId,
       },
     });
 
-    console.log('✅ Found equipments:', equipments.length);
+    console.log("✅ Found equipments:", equipments.length);
 
     res.json({
       success: true,
       message: `Found ${equipments.length} equipment(s) in category: ${category}`,
-      data: equipments
+      data: equipments,
     });
   } catch (error) {
-    console.error('❌ Error fetching equipment by category:', error);
+    console.error("❌ Error fetching equipment by category:", error);
     res.status(500).json({
       success: false,
       message: "Error fetching equipment by category",
@@ -319,6 +319,57 @@ export const getEquipmentByNumber = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error fetching equipment by number",
+      error: error.message,
+    });
+  }
+};
+
+export const getEquipmentByCategoryForUser = async (req, res) => {
+  try {
+    const gymOwnerId = req.user.gymOwnerId;
+    const { category } = req.query;
+
+    console.log("🔍 User searching for category:", category);
+    console.log("🔍 User's Gym Owner ID:", gymOwnerId);
+
+    if (!gymOwnerId) {
+      return res.status(400).json({
+        success: false,
+        message: "User is not associated with any gym",
+        data: null,
+      });
+    }
+
+    if (!category) {
+      return res.status(400).json({
+        success: false,
+        message: "Category parameter is required",
+        data: null,
+      });
+    }
+
+    // Case-insensitive search using LIKE
+    const equipments = await Equipment.findAll({
+      where: {
+        category: {
+          [Op.like]: category, // Case-insensitive match
+        },
+        gym_owner_id: gymOwnerId,
+      },
+    });
+
+    console.log("✅ Found equipments for user:", equipments.length);
+
+    res.json({
+      success: true,
+      message: `Found ${equipments.length} equipment(s) in category: ${category}`,
+      data: equipments,
+    });
+  } catch (error) {
+    console.error("❌ Error fetching equipment by category for user:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching equipment by category",
       error: error.message,
     });
   }
