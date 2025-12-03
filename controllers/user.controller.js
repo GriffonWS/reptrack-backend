@@ -4,7 +4,7 @@ import crypto from "crypto";
 import User from "../models/user.model.js";
 import { uploadToS3 } from "../utils/uploadToS3.js";
 import { sendOTP } from "../config/twilio.js";
-import { sendInvitationEmail } from "../nodemailer/emails.js";
+import { sendInvitationEmail, sendWelcomeEmail } from "../nodemailer/emails.js";
 import transporter from "../nodemailer/config.js";
 
 // Helper function to generate OTP
@@ -91,7 +91,29 @@ export const registerUser = async (req, res) => {
 
     console.log("💾 Creating user with profileImage:", profileImageUrl);
 
-    // Create user
+    // Generate random password (3 characters + @ + 3 numbers)
+    const generateRandomPassword = () => {
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+      const numbers = '0123456789';
+
+      let password = '';
+      for (let i = 0; i < 3; i++) {
+        password += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      password += '@';
+      for (let i = 0; i < 3; i++) {
+        password += numbers.charAt(Math.floor(Math.random() * numbers.length));
+      }
+      return password;
+    };
+
+    const plainPassword = generateRandomPassword();
+    console.log("🔐 Generated password for user");
+
+    // Hash the password
+    const hashedPassword = await bcryptjs.hash(plainPassword, 10);
+
+    // Create user with password and isNewUser flag
     const user = await User.create({
       firstName,
       lastName,
@@ -107,36 +129,23 @@ export const registerUser = async (req, res) => {
       profileImage: profileImageUrl,
       deviceToken,
       firebaseToken,
+      password: hashedPassword,
+      isNewUser: true, // Set as new user
     });
 
     console.log("✅ User created with ID:", user.id);
     console.log("📷 User profileImage value:", user.profileImage);
 
-    // Generate password reset token for secure password setup
-    const passwordResetToken = generatePasswordResetToken();
-    const tokenExpiry = 24; // 24 hours
-    const expiresAt = new Date(Date.now() + tokenExpiry * 60 * 60 * 1000);
-
-    // Store token in database
-    await user.update({
-      passwordResetToken,
-      passwordResetExpires: expiresAt,
-    });
-
-    // Send invitation email with setup link
+    // Send welcome email with login credentials
     try {
-      const appBaseUrl = process.env.APP_BASE_URL || "reptrack://";
-      const webBaseUrl = process.env.WEB_BASE_URL || "https://reptrack.app";
-
-      // Deep link for app: reptrack://set-password?token=xxx&uniqueId=xxx
-      // Web link fallback: https://reptrack.app/set-password?token=xxx&uniqueId=xxx
-      const setupLink = `${appBaseUrl}set-password?token=${passwordResetToken}&uniqueId=${user.uniqueId}`;
+      const androidLink = process.env.ANDROID_APP_URL || "https://play.google.com/store/apps/details?id=com.reptrack";
+      const iosLink = process.env.IOS_APP_URL || "https://apps.apple.com/app/reptrack";
 
       const userName = `${firstName} ${lastName}`;
-      await sendInvitationEmail(email, userName, user.uniqueId, setupLink, tokenExpiry);
-      console.log("✅ Invitation email sent to:", email);
+      await sendWelcomeEmail(email, userName, email, plainPassword, androidLink, iosLink);
+      console.log("✅ Welcome email sent to:", email);
     } catch (emailError) {
-      console.error("⚠️ Failed to send invitation email:", emailError.message);
+      console.error("⚠️ Failed to send welcome email:", emailError.message);
       // Don't fail the registration if email fails, just log it
     }
 
@@ -144,6 +153,7 @@ export const registerUser = async (req, res) => {
     const userData = user.toJSON();
     delete userData.otp;
     delete userData.token;
+    delete userData.password;
     delete userData.passwordResetToken;
     delete userData.passwordResetExpires;
 

@@ -141,6 +141,12 @@ const User = sequelize.define('User', {
     defaultValue: false,
     field: 'is_profile_updated'
   },
+  isNewUser: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: true,
+    field: 'is_new_user'
+  },
   timestamp: {
     type: DataTypes.DATE,
     allowNull: true,

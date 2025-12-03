@@ -1,4 +1,9 @@
-export const invitationEmailTemplate = (userName, uniqueId, setupLink, tokenExpiry) => {
+export const invitationEmailTemplate = (
+  userName,
+  uniqueId,
+  setupLink,
+  tokenExpiry
+) => {
   return `
 <!DOCTYPE html>
 <html>
@@ -77,3 +82,112 @@ export const invitationEmailTemplate = (userName, uniqueId, setupLink, tokenExpi
   `;
 };
 
+export const welcomeEmailTemplate = (
+  userName,
+  email,
+  password,
+  androidLink,
+  iosLink
+) => {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .details {
+            font-size: 16px;
+            color: #333333;
+            line-height: 1.6;
+        }
+        .credential-box {
+            background-color: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .email-text {
+            font-weight: bold;
+            color: #007bff;
+        }
+        .password-text {
+            font-weight: bold;
+            color: #dc3545;
+            font-size: 18px;
+        }
+        .app-links {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .app-button {
+            display: inline-block;
+            background-color: #28a745;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 14px;
+            margin-right: 4px;
+        }
+        .app-button:hover {
+            background-color: #218838;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 10px;
+            margin: 15px 0;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Welcome to RepTrack!</h2>
+        <p class="details">Hi <strong>${userName}</strong>,</p>
+        <p class="details">Your gym membership account has been successfully created! Here are your login credentials:</p>
+
+        <div class="credential-box">
+            <p class="details">Email: <span class="email-text">${email}</span></p>
+            <p class="details">Password: <span class="password-text">${password}</span></p>
+        </div>
+
+        <div class="warning">
+            <strong>🔒 Important:</strong> Please change your password after your first login for security purposes.
+        </div>
+
+        <h3>Download the RepTrack App:</h3>
+        <div class="app-links" style="text-align: center;">
+            <a href="${androidLink}" class="app-button">Download for Android</a>
+            <a href="${iosLink}" class="app-button">Download for iOS</a>
+        </div>
+
+        <p class="details">If you have any questions or need assistance, please contact your gym administrator.</p>
+
+        <p class="details" style="margin-top: 30px; font-size: 14px; color: #666;">
+            <strong>Note:</strong> This is an automated email. Please do not reply to this message.
+        </p>
+    </div>
+</body>
+</html>
+  `;
+};

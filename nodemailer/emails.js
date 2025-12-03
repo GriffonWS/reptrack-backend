@@ -1,5 +1,5 @@
 import transporter from "./config.js";
-import { invitationEmailTemplate } from "./email-templates.js";
+import { invitationEmailTemplate, welcomeEmailTemplate } from "./email-templates.js";
 
 export const sendInvitationEmail = async (email, userName, uniqueId, setupLink, tokenExpiry) => {
   try {
@@ -15,5 +15,22 @@ export const sendInvitationEmail = async (email, userName, uniqueId, setupLink, 
   } catch (error) {
     console.error("❌ Error sending invitation email", error);
     throw new Error("Error sending invitation email");
+  }
+};
+
+export const sendWelcomeEmail = async (email, userName, userEmail, password, androidLink, iosLink) => {
+  try {
+    const mailOptions = {
+      from: `"RepTrack" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: "Welcome to RepTrack - Your Login Credentials",
+      html: welcomeEmailTemplate(userName, userEmail, password, androidLink, iosLink),
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log("✅ Welcome email sent:", info.messageId);
+  } catch (error) {
+    console.error("❌ Error sending welcome email", error);
+    throw new Error("Error sending welcome email");
   }
 };
