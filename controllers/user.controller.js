@@ -1261,9 +1261,12 @@ export const changePassword = async (req, res) => {
       });
     }
 
-    // Hash and update new password
+    // Hash and update new password, set isNewUser to false
     const hashedPassword = await bcryptjs.hash(newPassword, 10);
-    await user.update({ password: hashedPassword });
+    await user.update({
+      password: hashedPassword,
+      isNewUser: false
+    });
 
     return res.status(200).json({
       success: true,
