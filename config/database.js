@@ -13,13 +13,19 @@ const sequelize = new Sequelize(
     port: process.env.DB_PORT || 3306,
     dialect: 'mysql',
     logging: process.env.NODE_ENV === 'development' ? console.log : false,
+    dialectOptions: {
+      connectTimeout: 60000, // 60 seconds
+    },
     pool: {
       max: 5,
       min: 0,
-      acquire: 30000,
+      acquire: 60000, // Increased from 30000
       idle: 10000
     },
-    timezone: '+05:30'
+    timezone: '+05:30',
+    retry: {
+      max: 3
+    }
   }
 );
 
