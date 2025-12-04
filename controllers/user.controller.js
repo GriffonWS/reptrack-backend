@@ -41,12 +41,12 @@ export const registerUser = async (req, res) => {
       firebaseToken,
     } = req.body;
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ where: { phone } });
+    // Check if user already exists by email
+    const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
       return res.status(400).json({
         success: false,
-        message: "User with this phone number already exists",
+        message: "User with this email address already exists",
         data: null,
       });
     }
