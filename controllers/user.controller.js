@@ -142,7 +142,7 @@ export const registerUser = async (req, res) => {
       const iosLink = process.env.IOS_APP_URL || "https://apps.apple.com/app/reptrack";
 
       const userName = `${firstName} ${lastName}`;
-      await sendWelcomeEmail(email, userName, email, plainPassword, androidLink, iosLink);
+      await sendWelcomeEmail(email, userName, user.uniqueId, email, plainPassword, androidLink, iosLink);
       console.log("✅ Welcome email sent to:", email);
     } catch (emailError) {
       console.error("⚠️ Failed to send welcome email:", emailError.message);
@@ -1056,23 +1056,29 @@ export const setPassword = async (req, res) => {
 // Forgot Password - Send Temporary Password
 export const forgotPassword = async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, uniqueId } = req.body;
 
-    if (!email) {
+    if (!email && !uniqueId) {
       return res.status(400).json({
         success: false,
-        message: "Email is required",
+        message: "Email or Unique ID is required",
         data: null,
       });
     }
 
-    const user = await User.findOne({ where: { email } });
+    // Find user by email or uniqueId
+    let user;
+    if (email) {
+      user = await User.findOne({ where: { email } });
+    } else if (uniqueId) {
+      user = await User.findOne({ where: { uniqueId } });
+    }
 
     if (!user) {
-      // Don't reveal if email exists for security
+      // Don't reveal if email/uniqueId exists for security
       return res.status(200).json({
         success: true,
-        message: "If an account exists with this email, a temporary password has been sent",
+        message: "If an account exists with this email or unique ID, a temporary password has been sent",
         data: null,
       });
     }
@@ -1099,10 +1105,10 @@ export const forgotPassword = async (req, res) => {
     // Hash the temporary password
     const hashedPassword = await bcryptjs.hash(tempPassword, 10);
 
-    // Update user with new password and set isNewUser to true
+    // Update user with new password and set isNewUser to false
     await user.update({
       password: hashedPassword,
-      isNewUser: true,
+      isNewUser: false,
       passwordResetToken: null,
       passwordResetExpires: null,
     });
@@ -1110,15 +1116,15 @@ export const forgotPassword = async (req, res) => {
     // Send temporary password email
     try {
       const userName = `${user.firstName} ${user.lastName}`;
-      await sendForgotPasswordEmail(email, userName, tempPassword);
-      console.log("✅ Temporary password email sent to:", email);
+      await sendForgotPasswordEmail(user.email, userName, user.uniqueId, tempPassword);
+      console.log("✅ Temporary password email sent to:", user.email);
     } catch (emailError) {
       console.error("⚠️ Failed to send temporary password email:", emailError.message);
     }
 
     return res.status(200).json({
       success: true,
-      message: "If an account exists with this email, a temporary password has been sent",
+      message: "If an account exists with this email or unique ID, a temporary password has been sent",
       data: null,
     });
   } catch (error) {

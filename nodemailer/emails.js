@@ -18,13 +18,13 @@ export const sendInvitationEmail = async (email, userName, uniqueId, setupLink, 
   }
 };
 
-export const sendWelcomeEmail = async (email, userName, userEmail, password, androidLink, iosLink) => {
+export const sendWelcomeEmail = async (email, userName, uniqueId, userEmail, password, androidLink, iosLink) => {
   try {
     const mailOptions = {
       from: `"RepTrack" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: "Welcome to RepTrack - Your Login Credentials",
-      html: welcomeEmailTemplate(userName, userEmail, password, androidLink, iosLink),
+      html: welcomeEmailTemplate(userName, uniqueId, userEmail, password, androidLink, iosLink),
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -35,13 +35,13 @@ export const sendWelcomeEmail = async (email, userName, userEmail, password, and
   }
 };
 
-export const sendForgotPasswordEmail = async (email, userName, tempPassword) => {
+export const sendForgotPasswordEmail = async (email, userName, uniqueId, tempPassword) => {
   try {
     const mailOptions = {
       from: `"RepTrack" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: "RepTrack - Password Reset",
-      html: forgotPasswordEmailTemplate(userName, email, tempPassword),
+      html: forgotPasswordEmailTemplate(userName, uniqueId, email, tempPassword),
     };
 
     const info = await transporter.sendMail(mailOptions);

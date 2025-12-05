@@ -84,6 +84,7 @@ export const invitationEmailTemplate = (
 
 export const welcomeEmailTemplate = (
   userName,
+  uniqueId,
   email,
   password,
   androidLink,
@@ -119,6 +120,11 @@ export const welcomeEmailTemplate = (
             padding: 15px;
             margin: 20px 0;
             border-radius: 4px;
+        }
+        .unique-id {
+            font-weight: bold;
+            color: #28a745;
+            font-size: 16px;
         }
         .email-text {
             font-weight: bold;
@@ -167,6 +173,7 @@ export const welcomeEmailTemplate = (
         <p class="details">Your gym membership account has been successfully created! Here are your login credentials:</p>
 
         <div class="credential-box">
+            <p class="details">Unique ID: <span class="unique-id">${uniqueId}</span></p>
             <p class="details">Email: <span class="email-text">${email}</span></p>
             <p class="details">Password: <span class="password-text">${password}</span></p>
         </div>
@@ -192,7 +199,7 @@ export const welcomeEmailTemplate = (
   `;
 };
 
-export const forgotPasswordEmailTemplate = (userName, email, tempPassword) => {
+export const forgotPasswordEmailTemplate = (userName, uniqueId, email, tempPassword) => {
   return `
 <!DOCTYPE html>
 <html>
@@ -224,6 +231,11 @@ export const forgotPasswordEmailTemplate = (userName, email, tempPassword) => {
             margin: 20px 0;
             border-radius: 4px;
         }
+        .unique-id {
+            font-weight: bold;
+            color: #28a745;
+            font-size: 16px;
+        }
         .email-text {
             font-weight: bold;
             color: #007bff;
@@ -252,6 +264,7 @@ export const forgotPasswordEmailTemplate = (userName, email, tempPassword) => {
         <p class="details">You requested to reset your password. Here is your temporary password:</p>
 
         <div class="credential-box">
+            <p class="details">Unique ID: <span class="unique-id">${uniqueId}</span></p>
             <p class="details">Email: <span class="email-text">${email}</span></p>
             <p class="details">Temporary Password: <span class="password-text">${tempPassword}</span></p>
         </div>
