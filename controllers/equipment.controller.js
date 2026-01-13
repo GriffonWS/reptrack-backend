@@ -244,10 +244,10 @@ export const getAllEquipmentForUser = async (req, res) => {
       where: {
         [Op.or]: [
           { gym_owner_id: gymOwnerId }, // Gym owner's equipment
-          { user_id: userId }            // User's personal equipment
-        ]
+          { user_id: userId }, // User's personal equipment
+        ],
       },
-      order: [["timestamp", "DESC"]]
+      order: [["timestamp", "DESC"]],
     });
 
     res.json({
@@ -334,19 +334,13 @@ export const getEquipmentByNumber = async (req, res) => {
 
 export const getEquipmentByCategoryForUser = async (req, res) => {
   try {
+    const userId = req.user.id;
     const gymOwnerId = req.user.gymOwnerId;
     const { category } = req.query;
 
     console.log("🔍 User searching for category:", category);
+    console.log("🔍 User ID:", userId);
     console.log("🔍 User's Gym Owner ID:", gymOwnerId);
-
-    if (!gymOwnerId) {
-      return res.status(400).json({
-        success: false,
-        message: "User is not associated with any gym",
-        data: null,
-      });
-    }
 
     if (!category) {
       return res.status(400).json({
@@ -356,14 +350,18 @@ export const getEquipmentByCategoryForUser = async (req, res) => {
       });
     }
 
-    // Case-insensitive search using LIKE
+    // Fetch both gym owner's equipment and user's personal equipment in the specified category
     const equipments = await Equipment.findAll({
       where: {
         category: {
           [Op.like]: category, // Case-insensitive match
         },
-        gym_owner_id: gymOwnerId,
+        [Op.or]: [
+          { gym_owner_id: gymOwnerId }, // Gym owner's equipment
+          { user_id: userId }, // User's personal equipment
+        ],
       },
+      order: [["timestamp", "DESC"]],
     });
 
     console.log("✅ Found equipments for user:", equipments.length);
@@ -473,7 +471,11 @@ export const updateUserEquipment = async (req, res) => {
     if (!equipment) {
       return res
         .status(404)
-        .json({ success: false, message: "Equipment not found or you don't have permission to update it" });
+        .json({
+          success: false,
+          message:
+            "Equipment not found or you don't have permission to update it",
+        });
     }
 
     // Check if equipment number is being changed to a number that already exists
@@ -551,7 +553,11 @@ export const deleteUserEquipment = async (req, res) => {
     if (!equipment) {
       return res
         .status(404)
-        .json({ success: false, message: "Equipment not found or you don't have permission to delete it" });
+        .json({
+          success: false,
+          message:
+            "Equipment not found or you don't have permission to delete it",
+        });
     }
 
     await equipment.destroy();
