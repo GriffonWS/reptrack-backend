@@ -1,0 +1,47 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main  # Trigger deployment only on push to main branch
+
+jobs:
+  deploy:
+    name: Deploy to AWS EC2
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /home/ubuntu/reptrack-backend
+
+            # Stash any local changes (like .env modifications)
+            git stash
+
+            # Pull latest code
+            git pull origin main
+
+            # Restore stashed .env if it exists
+            git stash pop || true
+
+            # Install dependencies
+            npm install --production
+
+            # Restart PM2 process
+            pm2 restart reptrack-backend
+            pm2 save
+
+            echo "✅ Backend deployment completed!"
+            echo "📊 Latest commit:"
+            git log -1 --oneline
+
+            echo "📊 PM2 status:"
+            pm2 status reptrack-backend
