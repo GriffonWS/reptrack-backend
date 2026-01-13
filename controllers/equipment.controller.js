@@ -387,31 +387,29 @@ export const getEquipmentByCategoryForUser = async (req, res) => {
 export const createUserEquipment = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { equipment_name, category, equipment_number } = req.body;
+    const gymOwnerId = req.user.gymOwnerId;
+    const { equipment_name, category } = req.body;
     console.log("User Equipment Creation:", req.body);
     const file = req.file;
 
-    if (!equipment_name || !equipment_number) {
+    if (!equipment_name) {
       return res.status(400).json({
         success: false,
-        message: "Equipment name and number are required",
+        message: "Equipment name is required",
       });
     }
 
-    // Check if equipment number already exists for this user
-    const existingEquipment = await Equipment.findOne({
+    // Auto-generate equipment number: Count total equipment (gym owner + user equipment) and add 1
+    const totalEquipmentCount = await Equipment.count({
       where: {
-        equipment_number,
-        user_id: userId,
-      },
+        [Op.or]: [
+          { gym_owner_id: gymOwnerId }, // Gym owner's equipment
+          { user_id: userId }            // User's personal equipment
+        ]
+      }
     });
 
-    if (existingEquipment) {
-      return res.status(400).json({
-        success: false,
-        message: `Equipment number "${equipment_number}" already exists. Please use a unique number.`,
-      });
-    }
+    const equipment_number = (totalEquipmentCount + 1).toString();
 
     // Try to upload image to S3 (if file exists)
     let imageUrl = null;
