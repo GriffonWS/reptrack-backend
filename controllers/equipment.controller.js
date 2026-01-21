@@ -250,10 +250,17 @@ export const getAllEquipmentForUser = async (req, res) => {
       order: [["timestamp", "DESC"]],
     });
 
+    // Add createdBy field to differentiate equipment source
+    const equipmentsWithCreatedBy = equipments.map((equipment) => {
+      const equipmentData = equipment.toJSON();
+      equipmentData.createdBy = equipment.user_id ? "user" : "gym_owner";
+      return equipmentData;
+    });
+
     res.json({
       success: true,
       message: `Found ${equipments.length} equipment(s)`,
-      data: equipments,
+      data: equipmentsWithCreatedBy,
     });
   } catch (error) {
     res.status(500).json({
@@ -364,12 +371,19 @@ export const getEquipmentByCategoryForUser = async (req, res) => {
       order: [["timestamp", "DESC"]],
     });
 
+    // Add createdBy field to differentiate equipment source
+    const equipmentsWithCreatedBy = equipments.map((equipment) => {
+      const equipmentData = equipment.toJSON();
+      equipmentData.createdBy = equipment.user_id ? "user" : "gym_owner";
+      return equipmentData;
+    });
+
     console.log("✅ Found equipments for user:", equipments.length);
 
     res.json({
       success: true,
       message: `Found ${equipments.length} equipment(s) in category: ${category}`,
-      data: equipments,
+      data: equipmentsWithCreatedBy,
     });
   } catch (error) {
     console.error("❌ Error fetching equipment by category for user:", error);
