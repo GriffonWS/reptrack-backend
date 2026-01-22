@@ -1,5 +1,4 @@
 import ExerciseDetails from "../models/exerciseDetails.model.js";
-import Equipment from "../models/equipment.model.js";
 import { Op } from "sequelize";
 
 // ✅ Create Exercise Details
@@ -19,18 +18,7 @@ export const createExerciseDetails = async (req, res) => {
       otherExercise,
     } = req.body;
 
-    // Determine exercise_type from equipment's category if equipmentNumber is provided
-    let finalExerciseType = exerciseType;
-    if (equipmentNumber) {
-      const equipment = await Equipment.findOne({
-        where: { equipment_number: equipmentNumber },
-      });
-      if (equipment && equipment.category) {
-        finalExerciseType = equipment.category;
-      }
-    }
-
-    if (!finalExerciseType) {
+    if (!exerciseType) {
       return res.status(400).json({
         success: false,
         message: "exerciseType is required",
@@ -45,7 +33,7 @@ export const createExerciseDetails = async (req, res) => {
       reps,
       sets,
       weight,
-      exercise_type: finalExerciseType,
+      exercise_type: exerciseType,
       free_weight_exercise: freeWeightExercise,
       other_exercise: otherExercise,
     });
