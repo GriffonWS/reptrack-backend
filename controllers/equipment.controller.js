@@ -1,6 +1,7 @@
 import Equipment from "../models/equipment.model.js";
 import { uploadToS3 } from "../utils/uploadToS3.js";
 import { Op } from "sequelize";
+import sequelize from "../config/database.js";
 
 export const createEquipment = async (req, res) => {
   try {
@@ -413,17 +414,26 @@ export const createUserEquipment = async (req, res) => {
       });
     }
 
-    // Auto-generate equipment number: Count total equipment (gym owner + user equipment) and add 1
-    const totalEquipmentCount = await Equipment.count({
+    // Auto-generate equipment number: Find the MAX equipment_number from all equipment (gym owner + user) and add 1
+    const maxEquipment = await Equipment.findOne({
       where: {
         [Op.or]: [
           { gym_owner_id: gymOwnerId }, // Gym owner's equipment
           { user_id: userId }            // User's personal equipment
         ]
-      }
+      },
+      order: [[sequelize.cast(sequelize.col('equipment_number'), 'UNSIGNED'), 'DESC']],
     });
 
-    const equipment_number = (totalEquipmentCount + 1).toString();
+    let nextEquipmentNumber = 1;
+    if (maxEquipment && maxEquipment.equipment_number) {
+      const maxNumber = parseInt(maxEquipment.equipment_number);
+      if (!isNaN(maxNumber)) {
+        nextEquipmentNumber = maxNumber + 1;
+      }
+    }
+
+    const equipment_number = nextEquipmentNumber.toString();
 
     // Try to upload image to S3 (if file exists)
     let imageUrl = null;
