@@ -1,4 +1,5 @@
 import ExerciseDetails from "../models/exerciseDetails.model.js";
+import Equipment from "../models/equipment.model.js";
 import { Op } from "sequelize";
 
 // ✅ Create Exercise Details
@@ -10,6 +11,7 @@ export const createExerciseDetails = async (req, res) => {
       equipmentNumber,
       miles,
       speed,
+      level,
       reps,
       sets,
       weight,
@@ -25,11 +27,24 @@ export const createExerciseDetails = async (req, res) => {
       });
     }
 
+    // Look up equipment name if equipmentNumber is provided
+    let equipmentName = null;
+    if (equipmentNumber) {
+      const equipment = await Equipment.findOne({
+        where: { equipment_number: equipmentNumber },
+      });
+      if (equipment) {
+        equipmentName = equipment.equipment_name;
+      }
+    }
+
     const newDetail = await ExerciseDetails.create({
       user_id: userId,
       equipment_number: equipmentNumber,
+      equipment_name: equipmentName,
       miles,
       speed,
+      level,
       reps,
       sets,
       weight,
@@ -57,7 +72,7 @@ export const updateExerciseDetails = async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
-    const { equipmentNumber, miles, speed, reps, sets, weight } = req.body;
+    const { equipmentNumber, miles, speed, level, reps, sets, weight } = req.body;
 
     const detail = await ExerciseDetails.findByPk(id);
     if (!detail) {
@@ -80,6 +95,7 @@ export const updateExerciseDetails = async (req, res) => {
       equipment_number: equipmentNumber,
       miles,
       speed,
+      level,
       reps,
       sets,
       weight,

@@ -17,11 +17,19 @@ const ExerciseDetails = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: true,
     },
+    equipment_name: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
     miles: {
       type: DataTypes.STRING,
       allowNull: true,
     },
     speed: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    level: {
       type: DataTypes.STRING,
       allowNull: true,
     },
