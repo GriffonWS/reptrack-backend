@@ -27,7 +27,6 @@ export const createExerciseDetails = async (req, res) => {
       });
     }
 
-    // Look up equipment name if equipmentNumber is provided
     let equipmentName = null;
     if (equipmentNumber) {
       const equipment = await Equipment.findOne({
@@ -36,6 +35,10 @@ export const createExerciseDetails = async (req, res) => {
       if (equipment) {
         equipmentName = equipment.equipment_name;
       }
+    } else if (freeWeightExercise) {
+      equipmentName = freeWeightExercise;
+    } else if (otherExercise) {
+      equipmentName = otherExercise;
     }
 
     const newDetail = await ExerciseDetails.create({
@@ -72,7 +75,8 @@ export const updateExerciseDetails = async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
-    const { equipmentNumber, miles, speed, level, reps, sets, weight } = req.body;
+    const { equipmentNumber, miles, speed, level, reps, sets, weight } =
+      req.body;
 
     const detail = await ExerciseDetails.findByPk(id);
     if (!detail) {
