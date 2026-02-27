@@ -12,6 +12,7 @@ import privacyPolicyRoutes from "./routes/privacyPolicy.routes.js";
 import freeWeightRoutes from "./routes/freeWeight.routes.js";
 import OtherExercise from "./routes/otherExercise.routes.js";
 import gymOwner from "./routes/gymOwner.routes.js";
+import favoritesRoutes from "./routes/favorites.routes.js";
 
 dotenv.config();
 
@@ -41,6 +42,7 @@ app.use("/privacypolicy", privacyPolicyRoutes);
 app.use("/free-weight", freeWeightRoutes);
 app.use("/other-exercise", OtherExercise);
 app.use("/gym-owner", gymOwner);
+app.use("/favorites", favoritesRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
