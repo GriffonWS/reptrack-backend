@@ -12,6 +12,8 @@ export const createExerciseDetails = async (req, res) => {
       miles,
       speed,
       level,
+      time,
+      floor,
       reps,
       sets,
       weight,
@@ -48,6 +50,8 @@ export const createExerciseDetails = async (req, res) => {
       miles,
       speed,
       level,
+      time,
+      floor,
       reps,
       sets,
       weight,
@@ -75,7 +79,7 @@ export const updateExerciseDetails = async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
-    const { equipmentNumber, miles, speed, level, reps, sets, weight } =
+    const { equipmentNumber, miles, speed, level, time, floor, reps, sets, weight } =
       req.body;
 
     const detail = await ExerciseDetails.findByPk(id);
@@ -100,6 +104,8 @@ export const updateExerciseDetails = async (req, res) => {
       miles,
       speed,
       level,
+      time,
+      floor,
       reps,
       sets,
       weight,

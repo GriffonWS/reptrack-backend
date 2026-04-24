@@ -33,6 +33,14 @@ const ExerciseDetails = sequelize.define(
       type: DataTypes.STRING,
       allowNull: true,
     },
+    time: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    floor: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
     reps: {
       type: DataTypes.STRING,
       allowNull: true,
