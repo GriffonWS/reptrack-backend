@@ -19,7 +19,7 @@ export const createExerciseDetails = async (req, res) => {
       weight,
       exerciseType,
       freeWeightExercise,
-      otherExercise,
+      other_exercise: otherExercise,
     } = req.body;
 
     if (!exerciseType) {
@@ -79,7 +79,7 @@ export const updateExerciseDetails = async (req, res) => {
   try {
     const userId = req.user.id;
     const { id } = req.params;
-    const { equipmentNumber, miles, speed, level, time, floor, reps, sets, weight } =
+    const { equipmentNumber, miles, speed, level, time, floor, reps, sets, weight, other_exercise: otherExercise } =
       req.body;
 
     const detail = await ExerciseDetails.findByPk(id);
@@ -109,6 +109,7 @@ export const updateExerciseDetails = async (req, res) => {
       reps,
       sets,
       weight,
+      other_exercise: otherExercise,
     });
 
     res.status(200).json({
