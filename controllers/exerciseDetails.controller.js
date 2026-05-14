@@ -31,8 +31,17 @@ export const createExerciseDetails = async (req, res) => {
 
     let equipmentName = null;
     if (equipmentNumber) {
+      // Scope to the user's own equipment + their gym owner's equipment,
+      // since equipment_number is only unique within that scope (not globally).
+      const gymOwnerId = req.user.gymOwnerId;
       const equipment = await Equipment.findOne({
-        where: { equipment_number: equipmentNumber },
+        where: {
+          equipment_number: equipmentNumber,
+          [Op.or]: [
+            { user_id: userId },
+            ...(gymOwnerId ? [{ gym_owner_id: gymOwnerId }] : []),
+          ],
+        },
       });
       if (equipment) {
         equipmentName = equipment.equipment_name;
